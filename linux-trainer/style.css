@@ -121,11 +121,6 @@ body {
     width: 0%;
 }
 
-.hearts {
-    font-size: 22px;
-    color: var(--red);
-}
-
 /* Screens */
 .screen {
     display: none;

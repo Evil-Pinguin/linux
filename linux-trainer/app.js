@@ -20,7 +20,6 @@ const storage = {
 // Состояние приложения (сохранённые значения подгружаются при старте)
 let state = {
     currentMode: null,
-    hearts: 5,
     xp: 0,
     streak: 0,
     
@@ -83,11 +82,6 @@ function updateStats() {
     document.getElementById('xp').textContent = state.xp;
 }
 
-// Обновить сердца с анимацией
-function updateHearts() {
-    document.getElementById('hearts').textContent = '❤'.repeat(state.hearts) + '🖤'.repeat(5 - state.hearts);
-}
-
 // Обновить прогресс бар
 function updateProgress(current, total) {
     const percent = Math.min((current / total) * 100, 100);
@@ -119,11 +113,9 @@ function shuffleArray(array) {
 function startMode(mode) {
     playClick();
     state.currentMode = mode;
-    state.hearts = 5;
     state.sessionCorrect = 0;
     state.sessionWrong = 0;
     state.sessionXP = 0;
-    updateHearts();
     
     if (mode === 'cards') {
         // Восстанавливаем фильтр и позицию, чтобы продолжить с того же места
@@ -611,10 +603,7 @@ function checkAnswer() {
         showResult(true, 'Правильно! 👏', q.hint || q.description || 'Отличная работа!');
     } else {
         state.sessionWrong++;
-        state.hearts--;
-        updateHearts();
         playWrong();
-        playHeartLost();
         
         // Добавляем тряску
         const preview = document.getElementById('commandPreview');
@@ -624,35 +613,23 @@ function checkAnswer() {
         const correctCommand = q.fullCommand;
         const msg = `Правильная команда: <strong style="font-family: monospace; font-size: 0.9em">${correctCommand}</strong><br><br>${q.hint || q.description || ''}`;
         
-        if (state.hearts <= 0) {
-            setTimeout(() => showLessonComplete(), 2200);
-        }
-        
         showResult(false, 'Неправильно 😔', msg);
     }
 }
 
 function skipQuestion() {
     playSkip();
-    state.hearts--;
-    updateHearts();
-    playHeartLost();
     const q = state.trainerQuestions[state.currentTrainerQuestion];
     const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.hint || q.description || ''}`;
     state.sessionWrong++;
     
-    if (state.hearts <= 0) {
-        showResult(false, 'Пропуск', msg);
-        setTimeout(() => showLessonComplete(), 2200);
-    } else {
-        showResult(false, 'Пропущено', msg);
-    }
+    showResult(false, 'Пропущено', msg);
 }
 
 // ========== LETTERS MODE (Тренажер 2: буквы, как в Duolingo) ==========
 // Показываем задачу и фишки с буквами. Тап по правильной (следующей) букве
-// ставит её в пропуск, тап по неправильной — фишка вспыхивает красным,
-// НЕ ставится, а жизнь сгорает.
+// ставит её в пропуск, тап по неправильной — фишка вспыхивает красным и
+// НЕ ставится.
 
 // Буквы-дополнения, похожие на символьный запас команд
 const LETTER_DISTRACTORS = 'aeinrslcmgot'.split('');
@@ -738,9 +715,6 @@ function tapLetter(letter, btn) {
         // Не та буква — вспыхивает красным и НЕ ставится
         playWrong();
         state.sessionWrong++;
-        state.hearts--;
-        updateHearts();
-        playHeartLost();
         btn.classList.add('wrong-flash');
         const tilesBox = document.getElementById('letterTiles');
         tilesBox.classList.add('shake');
@@ -748,10 +722,6 @@ function tapLetter(letter, btn) {
             btn.classList.remove('wrong-flash');
             tilesBox.classList.remove('shake');
         }, 500);
-
-        if (state.hearts <= 0) {
-            setTimeout(() => showLessonComplete(), 700);
-        }
     }
 }
 
@@ -768,19 +738,11 @@ function removeLastLetter() {
 
 function skipLettersQuestion() {
     playSkip();
-    state.hearts--;
-    updateHearts();
-    playHeartLost();
     const q = state.lettersQuestions[state.currentLettersQuestion];
     const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.hint || ''}`;
     state.sessionWrong++;
 
-    if (state.hearts <= 0) {
-        showResult(false, 'Пропуск', msg);
-        setTimeout(() => showLessonComplete(), 2200);
-    } else {
-        showResult(false, 'Пропущено', msg);
-    }
+    showResult(false, 'Пропущено', msg);
 }
 
 // ========== DICTIONARY MODE (Справочник) ==========
@@ -911,19 +873,12 @@ function checkTestAnswer() {
         options[state.selectedTestOption].classList.add('wrong');
         options[q.correct].classList.add('correct');
         state.sessionWrong++;
-        state.hearts--;
-        updateHearts();
         playWrong();
-        playHeartLost();
         
         // Тряска
         const testOpts = document.getElementById('testOptions');
         testOpts.classList.add('shake');
         setTimeout(() => testOpts.classList.remove('shake'), 500);
-        
-        if (state.hearts <= 0) {
-            setTimeout(() => showLessonComplete(), 2700);
-        }
         
         showResult(false, 'Неправильно', q.explanation);
     }
@@ -931,21 +886,13 @@ function checkTestAnswer() {
 
 function skipTestQuestion() {
     playSkip();
-    state.hearts--;
-    updateHearts();
-    playHeartLost();
     const q = state.testQuestions[state.currentTestQuestion];
     state.sessionWrong++;
     
     const options = document.querySelectorAll('.test-option');
     options[q.correct].classList.add('correct');
     
-    if (state.hearts <= 0) {
-        showResult(false, 'Пропуск', q.explanation);
-        setTimeout(() => showLessonComplete(), 2200);
-    } else {
-        showResult(false, 'Пропущено', q.explanation);
-    }
+    showResult(false, 'Пропущено', q.explanation);
 }
 
 // ========== RESULTS ==========
@@ -966,11 +913,6 @@ function showResult(isCorrect, title, message) {
 function nextQuestion() {
     playClick();
     document.getElementById('resultModal').classList.remove('active');
-    
-    if (state.hearts <= 0) {
-        showLessonComplete();
-        return;
-    }
     
     if (state.currentMode === 'trainer') {
         state.currentTrainerQuestion++;
@@ -1029,7 +971,6 @@ function showLessonComplete() {
 document.addEventListener('DOMContentLoaded', () => {
     loadSavedState();
     updateStats();
-    updateHearts();
     updateProgress(0, 1);
     initCardGestures();
     
