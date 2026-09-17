@@ -170,46 +170,20 @@ function showTrainerQuestion() {
     document.getElementById('checkBtn').disabled = true;
     
     const q = state.trainerQuestions[state.currentTrainerQuestion];
-    document.getElementById('trainerQuestion').textContent = q.question || 'Соберите команду:';
     
-    let commandParts;
+    // Задача всегда показана явно: пользователь точно знает, ЧТО должна сделать команда
+    document.getElementById('trainerTopic').textContent = q.topic || 'Команды';
+    document.getElementById('trainerQuestion').textContent = q.task || q.question || 'Собери команду:';
     
-    if (q.command && !q.fullCommand) {
-        const cmdParts = q.command.split(' ');
-        const blankIndex = q.type === 'git' ? 1 : 0;
-        
-        commandParts = cmdParts.map((word, i) => {
-            if (i === blankIndex) {
-                state.blanksState.push(null);
-                return { type: 'blank', index: 0 };
-            }
-            return { type: 'text', word: word };
-        });
-        
-        const correctWord = cmdParts[blankIndex];
-        const otherOptions = [];
-        const allWords = ALL_COMMANDS.flatMap(c => c.command.split(' '));
-        while (otherOptions.length < 4) {
-            const w = allWords[Math.floor(Math.random() * allWords.length)];
-            if (w !== correctWord && !otherOptions.includes(w) && w !== 'git') {
-                otherOptions.push(w);
-            }
+    // Разбиваем полную команду на слова; индексы из q.blanks становятся пропусками
+    const cmdWords = q.fullCommand.split(' ');
+    const commandParts = cmdWords.map((word, i) => {
+        if (q.blanks.includes(i)) {
+            state.blanksState.push(null);
+            return { type: 'blank', index: state.blanksState.length - 1 };
         }
-        q.fullCommand = q.command;
-        q.options = shuffleArray([correctWord, ...otherOptions]);
-        q.correctAnswer = correctWord;
-        q.blanks = [blankIndex];
-    } else {
-        const cmdWords = q.fullCommand.split(' ');
-        commandParts = cmdWords.map((word, i) => {
-            if (q.blanks && q.blanks.includes(i)) {
-                state.blanksState.push(null);
-                return { type: 'blank', index: state.blanksState.length - 1 };
-            }
-            return { type: 'text', word: word };
-        });
-        q.correctAnswer = q.fullCommand.split(' ').filter((w, i) => q.blanks.includes(i));
-    }
+        return { type: 'text', word: word };
+    });
     
     const preview = document.getElementById('commandPreview');
     preview.innerHTML = '';
@@ -231,6 +205,7 @@ function showTrainerQuestion() {
     
     document.getElementById('selectedWords').innerHTML = '';
     
+    // Варианты слов (в data.js всегда ровно один правильный + подходящие по теме отвлекающие)
     const optionsContainer = document.getElementById('wordOptions');
     optionsContainer.innerHTML = '';
     const shuffledOptions = shuffleArray(q.options);
@@ -308,7 +283,7 @@ function checkAnswer() {
         state.sessionCorrect++;
         state.sessionXP += 10;
         playCorrect();
-        showResult(true, 'Правильно! 👏', q.description || 'Отличная работа!');
+        showResult(true, 'Правильно! 👏', q.hint || q.description || 'Отличная работа!');
     } else {
         state.sessionWrong++;
         state.hearts--;
@@ -322,7 +297,7 @@ function checkAnswer() {
         setTimeout(() => preview.classList.remove('shake'), 500);
         
         const correctCommand = q.fullCommand;
-        const msg = `Правильная команда: <strong style="font-family: monospace; font-size: 0.9em">${correctCommand}</strong><br><br>${q.description || ''}`;
+        const msg = `Правильная команда: <strong style="font-family: monospace; font-size: 0.9em">${correctCommand}</strong><br><br>${q.hint || q.description || ''}`;
         
         if (state.hearts <= 0) {
             setTimeout(() => showLessonComplete(), 2200);
@@ -338,7 +313,7 @@ function skipQuestion() {
     updateHearts();
     playHeartLost();
     const q = state.trainerQuestions[state.currentTrainerQuestion];
-    const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.description || ''}`;
+    const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.hint || q.description || ''}`;
     state.sessionWrong++;
     
     if (state.hearts <= 0) {
