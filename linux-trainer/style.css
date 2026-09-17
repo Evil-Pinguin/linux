@@ -263,8 +263,169 @@ body {
 .flashcard {
     height: clamp(260px, 50vh, 340px);
     perspective: 1000px;
+    cursor: grab;
+    margin-bottom: 12px;
+    position: relative;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    will-change: transform;
+}
+
+.flashcard.dragging {
+    cursor: grabbing;
+}
+
+.flashcard.flying {
+    pointer-events: none;
+}
+
+/* Штампы свайпа: появляются по мере перетаскивания карточки */
+.swipe-stamp {
+    position: absolute;
+    z-index: 20;
+    font-weight: 900;
+    font-size: clamp(18px, 5vw, 28px);
+    padding: 6px 16px;
+    border: 4px solid;
+    border-radius: 12px;
+    letter-spacing: 2px;
+    background: rgba(255, 255, 255, 0.92);
+    opacity: 0;
+    pointer-events: none;
+    transition: none;
+}
+
+.stamp-know {
+    color: var(--green-dark);
+    border-color: var(--green-dark);
+    top: 20px;
+    right: 14px;
+    transform: rotate(12deg);
+}
+
+.stamp-dontknow {
+    color: var(--red-dark);
+    border-color: var(--red-dark);
+    top: 20px;
+    left: 14px;
+    transform: rotate(-12deg);
+}
+
+.stamp-repeat {
+    color: var(--blue-dark);
+    border-color: var(--blue-dark);
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Плашка статуса карточки (знаю / не знаю / повторить) */
+.card-status {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 999px;
+    display: none;
+    z-index: 5;
+}
+
+.card-status.known {
+    display: block;
+    background: var(--green-light);
+    color: var(--green-dark);
+}
+
+.card-status.unknown {
+    display: block;
+    background: var(--red-light);
+    color: var(--red-dark);
+}
+
+.card-status.review {
+    display: block;
+    background: #ddf4ff;
+    color: var(--blue-dark);
+}
+
+/* Подсказка про свайпы под карточкой */
+.swipe-hint {
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+/* Прогресс «знаю N из M» */
+.card-known-progress {
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+.card-known-progress span {
+    color: var(--green-dark);
+}
+
+/* Кнопки действий (дублируют свайпы) */
+.card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.swipe-btn {
+    flex: 1;
+    min-height: 52px;
+    border-radius: 14px;
+    border: 2px solid;
+    border-bottom-width: 4px;
+    background: var(--white);
+    font-size: 15px;
+    font-weight: 800;
     cursor: pointer;
-    margin-bottom: 24px;
+    transition: all 0.1s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.swipe-btn:active {
+    border-bottom-width: 2px;
+    transform: translateY(2px) scale(0.98);
+}
+
+.swipe-btn.btn-know {
+    color: var(--green-dark);
+    border-color: var(--green);
+    background: var(--green-light);
+}
+
+.swipe-btn.btn-dontknow {
+    color: var(--red-dark);
+    border-color: var(--red);
+    background: var(--red-light);
+}
+
+.swipe-btn.btn-repeat {
+    color: var(--blue-dark);
+    border-color: var(--blue);
+    background: #ddf4ff;
+}
+
+/* Анимация появления новой карточки */
+@keyframes cardEnter {
+    from { opacity: 0; transform: translateY(14px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.flashcard.card-enter {
+    animation: cardEnter 0.22s ease;
 }
 
 .flashcard-inner {
@@ -495,6 +656,7 @@ body {
 
 .word-chip {
     background: var(--white);
+    color: var(--gray-700);
     border: 2px solid var(--gray-300);
     border-bottom: 4px solid var(--gray-400);
     border-radius: 12px;

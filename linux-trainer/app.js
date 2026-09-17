@@ -44,7 +44,8 @@ function showScreen(screenId) {
 
 // Обновить статистику в меню
 function updateStats() {
-    document.getElementById('totalLearned').textContent = state.totalLearned;
+    // «Изучено» — карточки, отмеченные как «знаю» (хранится на устройстве)
+    document.getElementById('totalLearned').textContent = knownCardsCount();
     document.getElementById('streak').textContent = state.streak;
     document.getElementById('xp').textContent = state.xp;
 }
@@ -92,12 +93,15 @@ function startMode(mode) {
     updateHearts();
     
     if (mode === 'cards') {
+        state.deck = buildDeck();
         state.currentCard = 0;
         state.isFlipped = false;
-        document.getElementById('cardTotal').textContent = ALL_COMMANDS.length;
+        document.getElementById('cardTotal').textContent = state.deck.length;
+        document.getElementById('knownTotal').textContent = ALL_COMMANDS.length;
+        updateKnownCount();
         showCard();
         showScreen('cardsScreen');
-        updateProgress(1, ALL_COMMANDS.length);
+        updateProgress(1, state.deck.length);
     } else if (mode === 'trainer') {
         state.trainerQuestions = shuffleArray(TRAINER_QUESTIONS).slice(0, state.questionsPerLesson);
         state.currentTrainerQuestion = 0;
@@ -114,9 +118,47 @@ function startMode(mode) {
     }
 }
 
-// ========== CARDS MODE ==========
+// ========== CARDS MODE (Tinder-style) ==========
+// Статусы карточек хранятся в localStorage — приложение помнит,
+// какие команды ты уже знаешь, а что стоит повторить.
+
+function getCardStatuses() {
+    try {
+        return JSON.parse(localStorage.getItem('linuxTrainerCardStatus') || '{}');
+    } catch (e) {
+        return {};
+    }
+}
+
+function markCard(command, status) {
+    const statuses = getCardStatuses();
+    statuses[command] = status;
+    localStorage.setItem('linuxTrainerCardStatus', JSON.stringify(statuses));
+}
+
+function knownCardsCount() {
+    const statuses = getCardStatuses();
+    return ALL_COMMANDS.filter(c => statuses[c.command] === 'known').length;
+}
+
+// Колода: сначала «не знаю», потом «повторить», потом новые, в конце — выученные
+function buildDeck() {
+    const statuses = getCardStatuses();
+    const priority = c => {
+        const s = statuses[c.command];
+        if (s === 'unknown') return 0;
+        if (s === 'review') return 1;
+        if (!s) return 2;
+        return 3; // known
+    };
+    return ALL_COMMANDS
+        .map((card, i) => ({ card, i }))
+        .sort((a, b) => priority(a.card) - priority(b.card) || a.i - b.i)
+        .map(o => o.card);
+}
+
 function showCard() {
-    const card = ALL_COMMANDS[state.currentCard];
+    const card = state.deck[state.currentCard];
     document.getElementById('cardCategory').textContent = card.category;
     document.getElementById('cardCommand').textContent = card.command;
     document.getElementById('cardDescription').textContent = card.description;
@@ -124,33 +166,89 @@ function showCard() {
     
     document.getElementById('cardCurrent').textContent = state.currentCard + 1;
     
+    // Плашка статуса, если карточка уже отмечалась раньше
+    const status = getCardStatuses()[card.command];
+    const statusEl = document.getElementById('cardStatus');
+    statusEl.className = 'card-status' + (status ? ' ' + status : '');
+    statusEl.textContent = status === 'known' ? '✓ знаю' :
+                           status === 'unknown' ? '✗ не знаю' :
+                           status === 'review' ? '↻ повторить' : '';
+    
     const flashcard = document.getElementById('flashcard');
     flashcard.classList.remove('flipped');
     state.isFlipped = false;
+    
+    // Анимация появления следующей карточки
+    flashcard.classList.remove('card-enter');
+    void flashcard.offsetWidth;
+    flashcard.classList.add('card-enter');
 }
 
 function flipCard() {
+    if (state.currentMode !== 'cards') return;
     playFlip();
     const flashcard = document.getElementById('flashcard');
     flashcard.classList.toggle('flipped');
     state.isFlipped = !state.isFlipped;
 }
 
-function nextCard() {
-    playClick();
-    state.totalLearned++;
-    localStorage.setItem('linuxTrainerLearned', state.totalLearned.toString());
-    state.sessionXP += 2;
-    state.xp += 2;
-    localStorage.setItem('linuxTrainerXP', state.xp.toString());
-    
-    if (state.currentCard < ALL_COMMANDS.length - 1) {
+function updateKnownCount() {
+    document.getElementById('knownCount').textContent = knownCardsCount();
+}
+
+function advanceCard() {
+    if (state.currentCard < state.deck.length - 1) {
         state.currentCard++;
         showCard();
-        updateProgress(state.currentCard + 1, ALL_COMMANDS.length);
+        updateProgress(state.currentCard + 1, state.deck.length);
     } else {
         showLessonComplete();
     }
+}
+
+// Действие после анимации вылета карточки
+function doKnow() {
+    markCard(state.deck[state.currentCard].command, 'known');
+    state.sessionXP += 3;
+    state.sessionCorrect++;
+    updateKnownCount();
+    advanceCard();
+}
+
+function doDontKnow() {
+    markCard(state.deck[state.currentCard].command, 'unknown');
+    state.sessionWrong++;
+    updateKnownCount();
+    advanceCard();
+}
+
+function doRepeat() {
+    markCard(state.deck[state.currentCard].command, 'review');
+    state.sessionXP += 1;
+    updateKnownCount();
+    advanceCard();
+}
+
+// Кнопки действий (дублируют свайпы, карточка так же улетает)
+function knowCard() {
+    playSelect();
+    flyCardOut('right', 0, 0, doKnow);
+}
+
+function dontKnowCard() {
+    playSkip();
+    flyCardOut('left', 0, 0, doDontKnow);
+}
+
+function repeatCard() {
+    playClick();
+    flyCardOut('down', 0, 0, doRepeat);
+}
+
+// Навигация без смены статуса
+function skipCard() {
+    playClick();
+    advanceCard();
 }
 
 function prevCard() {
@@ -158,8 +256,133 @@ function prevCard() {
     if (state.currentCard > 0) {
         state.currentCard--;
         showCard();
-        updateProgress(state.currentCard + 1, ALL_COMMANDS.length);
+        updateProgress(state.currentCard + 1, state.deck.length);
     }
+}
+
+// ========== CARD SWIPE (жесты) ==========
+const SWIPE_THRESHOLD = 90;
+let cardDrag = null;
+
+// Штампы появляются постепенно, по мере того как тянешь карточку
+function updateStamps(dx, dy) {
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const horizontal = Math.min(1, Math.abs(dx) / SWIPE_THRESHOLD);
+    document.getElementById('stampKnow').style.opacity = clamp01(dx / SWIPE_THRESHOLD);
+    document.getElementById('stampDontknow').style.opacity = clamp01(-dx / SWIPE_THRESHOLD);
+    // «Повторить» — только когда тянут преимущественно вниз
+    document.getElementById('stampRepeat').style.opacity = clamp01(dy / SWIPE_THRESHOLD) * (1 - horizontal);
+}
+
+function hideStamps(exceptId) {
+    ['stampKnow', 'stampDontknow', 'stampRepeat'].forEach(id => {
+        document.getElementById(id).style.opacity = (id === exceptId) ? 1 : 0;
+    });
+}
+
+// Анимация вылета карточки за экран, затем действие
+function flyCardOut(direction, dx, dy, action) {
+    const card = document.getElementById('flashcard');
+    if (state.currentMode !== 'cards' || card.classList.contains('flying')) return;
+    card.classList.add('flying');
+
+    const stampId = direction === 'right' ? 'stampKnow' :
+                    direction === 'left' ? 'stampDontknow' : 'stampRepeat';
+    hideStamps(stampId);
+
+    const offX = Math.max(window.innerWidth, 500);
+    const offY = Math.max(window.innerHeight, 700);
+    const targets = {
+        right: [offX, dy, 25],
+        left: [-offX, dy, -25],
+        down: [dx, offY, 0]
+    };
+    const [tx, ty, rot] = targets[direction];
+
+    card.style.transition = 'transform 0.28s ease-in, opacity 0.28s ease-in';
+    card.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg)`;
+    card.style.opacity = '0';
+
+    setTimeout(() => {
+        resetCardInstant(card);
+        if (state.currentMode !== 'cards') return; // пользователь успел выйти
+        action();
+    }, 280);
+}
+
+// Мгновенный сброс позиции после вылета + плавное появление
+function resetCardInstant(card) {
+    card.style.transition = 'none';
+    card.style.transform = '';
+    hideStamps();
+    void card.offsetWidth; // reflow, чтобы «none» применился
+    card.style.transition = 'opacity 0.18s ease';
+    card.style.opacity = '';
+    setTimeout(() => {
+        card.style.transition = '';
+        card.classList.remove('flying');
+    }, 200);
+}
+
+// Пружинный возврат карточки, если свайп не дошёл до порога
+function snapCardBack(card) {
+    card.style.transition = 'transform 0.28s cubic-bezier(.2,.8,.3,1.2)';
+    card.style.transform = '';
+    hideStamps();
+    setTimeout(() => { card.style.transition = ''; }, 300);
+}
+
+function initCardGestures() {
+    const card = document.getElementById('flashcard');
+
+    card.addEventListener('pointerdown', e => {
+        if (state.currentMode !== 'cards' || card.classList.contains('flying')) return;
+        cardDrag = { startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, moved: false };
+        card.classList.add('dragging');
+        try { card.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    card.addEventListener('pointermove', e => {
+        if (!cardDrag) return;
+        cardDrag.dx = e.clientX - cardDrag.startX;
+        cardDrag.dy = e.clientY - cardDrag.startY;
+        if (Math.abs(cardDrag.dx) > 6 || Math.abs(cardDrag.dy) > 6) cardDrag.moved = true;
+        card.style.transition = 'none';
+        card.style.transform = `translate(${cardDrag.dx}px, ${cardDrag.dy}px) rotate(${cardDrag.dx / 12}deg)`;
+        updateStamps(cardDrag.dx, cardDrag.dy);
+    });
+
+    card.addEventListener('pointerup', e => {
+        if (!cardDrag) return;
+        const { dx, dy, moved } = cardDrag;
+        cardDrag = null;
+        card.classList.remove('dragging');
+
+        if (!moved) {
+            snapCardBack(card); // на случай микродвижения
+            flipCard();         // тап — перевернуть карточку
+            return;
+        }
+        if (dx > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+            playSelect();
+            flyCardOut('right', dx, dy, doKnow);
+        } else if (dx < -SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+            playSkip();
+            flyCardOut('left', dx, dy, doDontKnow);
+        } else if (dy > SWIPE_THRESHOLD && dy > Math.abs(dx)) {
+            playClick();
+            flyCardOut('down', dx, dy, doRepeat);
+        } else {
+            snapCardBack(card);
+        }
+    });
+
+    card.addEventListener('pointercancel', () => {
+        if (!cardDrag) return;
+        cardDrag = null;
+        card.classList.remove('dragging');
+        snapCardBack(card);
+    });
 }
 
 // ========== TRAINER MODE (Duolingo-style) ==========
@@ -459,6 +682,11 @@ function showLessonComplete() {
     state.xp += state.sessionXP;
     localStorage.setItem('linuxTrainerXP', state.xp.toString());
     
+    // Для карточек подписи статистики другие
+    const isCards = state.currentMode === 'cards';
+    document.getElementById('correctLabel').textContent = isCards ? 'Знаю:' : 'Правильных:';
+    document.getElementById('wrongLabel').textContent = isCards ? 'Не знаю:' : 'Ошибок:';
+    
     document.getElementById('earnedXP').textContent = state.sessionXP;
     document.getElementById('correctCount').textContent = state.sessionCorrect;
     document.getElementById('wrongCount').textContent = state.sessionWrong;
@@ -478,6 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateStats();
     updateHearts();
     updateProgress(0, 1);
+    initCardGestures();
     
     // Инициализируем аудио при первом тапе/клике (требование мобильных браузеров)
     const initAudioOnFirstInteraction = () => {
