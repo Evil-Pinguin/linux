@@ -1,6 +1,10 @@
 // Звуковое сопровождение как в Duolingo через Web Audio API
 let audioCtx = null;
-let soundEnabled = localStorage.getItem('linuxTrainerSound') !== 'off';
+// Чтение настройки без падения, если браузер блокирует localStorage (iframe и т.п.)
+let soundEnabled = (function () {
+    try { return window.localStorage.getItem('linuxTrainerSound') !== 'off'; }
+    catch (e) { return true; }
+})();
 
 function initAudio() {
     if (!audioCtx) {
@@ -13,7 +17,7 @@ function initAudio() {
 
 function toggleSound() {
     soundEnabled = !soundEnabled;
-    localStorage.setItem('linuxTrainerSound', soundEnabled ? 'on' : 'off');
+    try { window.localStorage.setItem('linuxTrainerSound', soundEnabled ? 'on' : 'off'); } catch (e) {}
     
     const btn = document.getElementById('soundBtn');
     btn.textContent = soundEnabled ? '🔊' : '🔇';

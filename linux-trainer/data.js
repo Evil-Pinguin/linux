@@ -371,7 +371,77 @@ const COMMANDS = {
 };
 
 // Объединяем все карточки в один массив (порядок обучения: Linux → Bash → Git → термины)
-const ALL_COMMANDS = [...COMMANDS.linux, ...COMMANDS.bash, ...COMMANDS.git, ...COMMANDS.terms];
+// Каждой карточке проставляем тему — для фильтров в режиме карточек и справочника
+const ALL_COMMANDS = [
+    ...COMMANDS.linux.map(c => ({ ...c, topic: 'Linux' })),
+    ...COMMANDS.bash.map(c => ({ ...c, topic: 'Bash' })),
+    ...COMMANDS.git.map(c => ({ ...c, topic: 'Git' })),
+    ...COMMANDS.terms.map(c => ({ ...c, topic: 'Термины' }))
+];
+
+// Пошаговый гид: публикация проекта в Git — от привязки SSH-ключа до push
+const GIT_GUIDE = [
+    {
+        title: 'Сгенерируй SSH-ключ',
+        command: 'ssh-keygen -t ed25519 -C "you@mail.com"',
+        note: 'Почту укажи ту, что на GitHub. На все вопросы можно жать Enter — ключ появится в ~/.ssh/'
+    },
+    {
+        title: 'Запусти ssh-agent и добавь в него ключ',
+        command: 'eval "$(ssh-agent -s)"\nssh-add ~/.ssh/id_ed25519',
+        note: 'Агент держит ключ в памяти, чтобы не вводить пароль ключа каждый раз'
+    },
+    {
+        title: 'Скопируй ПУБЛИЧНЫЙ ключ',
+        command: 'cat ~/.ssh/id_ed25519.pub',
+        note: 'Скопируй весь вывод, начиная с "ssh-ed25519". Приватный ключ (без .pub) никому не показывай!'
+    },
+    {
+        title: 'Привяжи ключ к GitHub',
+        command: 'github.com → Settings → SSH and GPG keys → New SSH key',
+        note: 'Вставь скопированный публичный ключ, дай понятное имя (например, "мой ноутбук") и сохрани'
+    },
+    {
+        title: 'Проверь соединение с GitHub',
+        command: 'ssh -T git@github.com',
+        note: 'Ответ "Hi USERNAME! You\'ve successfully authenticated" — ключ привязан правильно'
+    },
+    {
+        title: 'Создай пустой репозиторий на GitHub',
+        command: 'github.com → New repository',
+        note: 'БЕЗ README и .gitignore — пусть будет пустым, иначе первый push не пройдёт'
+    },
+    {
+        title: 'Инициализируй Git в папке проекта',
+        command: 'git init',
+        note: 'Выполняется в папке проекта. Появится скрытая папка .git'
+    },
+    {
+        title: 'Подготовь файлы к коммиту',
+        command: 'git add .',
+        note: 'Точка — «все файлы». Проверь git status: файлы должны быть зелёными'
+    },
+    {
+        title: 'Сделай первый коммит',
+        command: 'git commit -m "Initial commit"',
+        note: 'Если Git ругается на имя/почту: git config --global user.name "Имя" и user.email "почта"'
+    },
+    {
+        title: 'Переименуй ветку в main',
+        command: 'git branch -M main',
+        note: 'Так главная ветка будет называться как на GitHub'
+    },
+    {
+        title: 'Привяжи удалённый репозиторий по SSH',
+        command: 'git remote add origin git@github.com:USER/REPO.git',
+        note: 'SSH-адрес копируй на странице репозитория (кнопка Code → SSH). Проверка: git remote -v'
+    },
+    {
+        title: 'Отправь код на GitHub',
+        command: 'git push -u origin main',
+        note: '-u связывает ветку с серверной. Дальше достаточно просто git push. Готово! 🎉'
+    }
+];
 
 // Вопросы для тренажера (Duolingo-style — собери команду).
 // У каждого вопроса явно написана ЗАДАЧА (task) — что должна сделать команда,
