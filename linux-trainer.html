@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#58cc02">
-    <title>Linux & Git Тренажер</title>
+    <title>Linux • Bash • Git Тренажер</title>
     <style>
 * {
     margin: 0;
@@ -194,7 +194,7 @@ body {
 .mode-card:active {
     border-bottom-width: 2px;
     transform: translateY(3px);
-    background: var(--gray-50);
+    background: var(--gray-100);
 }
 
 .mode-icon {
@@ -273,8 +273,428 @@ body {
 .flashcard {
     height: clamp(260px, 50vh, 340px);
     perspective: 1000px;
+    cursor: grab;
+    margin-bottom: 12px;
+    position: relative;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    will-change: transform;
+}
+
+.flashcard.dragging {
+    cursor: grabbing;
+}
+
+.flashcard.flying {
+    pointer-events: none;
+}
+
+/* Штампы свайпа: появляются по мере перетаскивания карточки */
+.swipe-stamp {
+    position: absolute;
+    z-index: 20;
+    font-weight: 900;
+    font-size: clamp(18px, 5vw, 28px);
+    padding: 6px 16px;
+    border: 4px solid;
+    border-radius: 12px;
+    letter-spacing: 2px;
+    background: rgba(255, 255, 255, 0.92);
+    opacity: 0;
+    pointer-events: none;
+    transition: none;
+}
+
+.stamp-know {
+    color: var(--green-dark);
+    border-color: var(--green-dark);
+    top: 20px;
+    right: 14px;
+    transform: rotate(12deg);
+}
+
+.stamp-dontknow {
+    color: var(--red-dark);
+    border-color: var(--red-dark);
+    top: 20px;
+    left: 14px;
+    transform: rotate(-12deg);
+}
+
+.stamp-repeat {
+    color: var(--blue-dark);
+    border-color: var(--blue-dark);
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Плашка статуса карточки (знаю / не знаю / повторить) */
+.card-status {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 12px;
+    border-radius: 999px;
+    display: none;
+    z-index: 5;
+}
+
+.card-status.known {
+    display: block;
+    background: var(--green-light);
+    color: var(--green-dark);
+}
+
+.card-status.unknown {
+    display: block;
+    background: var(--red-light);
+    color: var(--red-dark);
+}
+
+.card-status.review {
+    display: block;
+    background: #ddf4ff;
+    color: var(--blue-dark);
+}
+
+/* Подсказка про свайпы под карточкой */
+.swipe-hint {
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+/* Прогресс «знаю N из M» */
+.card-known-progress {
+    text-align: center;
+    color: var(--gray-500);
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+.card-known-progress span {
+    color: var(--green-dark);
+}
+
+/* Кнопки действий (дублируют свайпы) */
+.card-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.swipe-btn {
+    flex: 1;
+    min-height: 52px;
+    border-radius: 14px;
+    border: 2px solid;
+    border-bottom-width: 4px;
+    background: var(--white);
+    font-size: 15px;
+    font-weight: 800;
     cursor: pointer;
-    margin-bottom: 24px;
+    transition: all 0.1s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.swipe-btn:active {
+    border-bottom-width: 2px;
+    transform: translateY(2px) scale(0.98);
+}
+
+.swipe-btn.btn-know {
+    color: var(--green-dark);
+    border-color: var(--green);
+    background: var(--green-light);
+}
+
+.swipe-btn.btn-dontknow {
+    color: var(--red-dark);
+    border-color: var(--red);
+    background: var(--red-light);
+}
+
+.swipe-btn.btn-repeat {
+    color: var(--blue-dark);
+    border-color: var(--blue);
+    background: #ddf4ff;
+}
+
+/* Анимация появления новой карточки */
+@keyframes cardEnter {
+    from { opacity: 0; transform: translateY(14px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.flashcard.card-enter {
+    animation: cardEnter 0.22s ease;
+}
+
+/* Фильтры тем в карточках */
+.filter-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 2px 12px;
+    margin-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.filter-chips::-webkit-scrollbar {
+    display: none;
+}
+
+.filter-chip {
+    flex: 0 0 auto;
+    background: var(--white);
+    color: var(--gray-600);
+    border: 2px solid var(--gray-200);
+    border-bottom-width: 3px;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.filter-chip:active {
+    transform: scale(0.95);
+}
+
+.filter-chip.active {
+    background: var(--green);
+    border-color: var(--green-dark);
+    color: var(--white);
+}
+
+/* ========== Тренажер 2 (буквы) ========== */
+.letter-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px 0;
+}
+
+.letter-tile {
+    min-width: 52px;
+    min-height: 56px;
+    padding: 10px 14px;
+    background: var(--white);
+    color: var(--gray-700);
+    border: 2px solid var(--gray-300);
+    border-bottom: 4px solid var(--gray-400);
+    border-radius: 12px;
+    font-family: 'Courier New', 'SF Mono', Monaco, monospace;
+    font-size: 24px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.12s ease;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.letter-tile:hover {
+    background: var(--gray-100);
+}
+
+.letter-tile:active {
+    transform: scale(0.92);
+}
+
+.letter-tile.used {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.8);
+}
+
+.letter-tile.wrong-flash {
+    background: var(--red);
+    border-color: var(--red-dark);
+    color: var(--white);
+    transform: scale(1.05);
+}
+
+/* Пропуск из буквенных ячеек внутри «терминала» */
+.letters-slot {
+    display: inline-flex;
+    gap: 4px;
+    align-items: flex-end;
+    cursor: pointer;
+    min-height: 40px;
+}
+
+.letter-cell {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 38px;
+    padding: 0 4px;
+    border-bottom: 3px solid var(--gray-500);
+    font-family: 'Courier New', 'SF Mono', Monaco, monospace;
+    font-size: clamp(18px, 5vw, 24px);
+    font-weight: 700;
+    color: var(--green-light);
+}
+
+.letter-cell.filled {
+    border-bottom-color: var(--green);
+}
+
+.letter-cell:empty::after {
+    content: '';
+    display: block;
+    width: 100%;
+}
+
+/* ========== Справочник: гид ========== */
+.guide-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.guide-step {
+    display: flex;
+    gap: 14px;
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-bottom-width: 4px;
+    border-radius: 16px;
+    padding: 14px;
+    text-align: left;
+}
+
+.guide-num {
+    flex: 0 0 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: var(--white);
+    font-weight: 900;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.guide-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.guide-title {
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--gray-800);
+    margin-bottom: 8px;
+}
+
+.guide-command {
+    background: var(--gray-800);
+    color: var(--green-light);
+    font-family: 'Courier New', 'SF Mono', Monaco, monospace;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-bottom: 8px;
+}
+
+.guide-command.guide-command-text {
+    background: var(--gray-100);
+    color: var(--gray-600);
+    font-family: inherit;
+}
+
+.guide-note {
+    font-size: 13px;
+    color: var(--gray-500);
+    line-height: 1.45;
+}
+
+/* ========== Справочник: словарь ========== */
+.dict-header {
+    margin-top: 8px;
+}
+
+.dict-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dict-topic {
+    font-size: 14px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--blue-dark);
+    margin: 20px 0 2px;
+}
+
+.dict-item {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 14px;
+    padding: 12px 14px;
+}
+
+.dict-command {
+    display: inline-block;
+    background: var(--gray-800);
+    color: var(--green-light);
+    font-family: 'Courier New', 'SF Mono', Monaco, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    word-break: break-all;
+    max-width: 100%;
+}
+
+.dict-desc {
+    font-size: 14px;
+    color: var(--gray-700);
+    line-height: 1.45;
+    margin-bottom: 6px;
+}
+
+.dict-example {
+    font-family: 'Courier New', 'SF Mono', Monaco, monospace;
+    font-size: 12px;
+    color: var(--gray-500);
+    white-space: pre-wrap;
+    word-break: break-all;
+    background: var(--gray-100);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+/* Меню: два столбца на широких экранах */
+@media (min-width: 480px) {
+    .menu-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .menu-grid .mode-card:last-child {
+        grid-column: 1 / -1;
+    }
 }
 
 .flashcard-inner {
@@ -434,6 +854,28 @@ body {
     line-height: 1.3;
 }
 
+/* Тема задания (Linux / Bash / Git) */
+.trainer-topic {
+    display: inline-block;
+    background: var(--blue);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+/* Подпись-инструкция под формулировкой задачи */
+.trainer-instruction {
+    color: var(--gray-500);
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 10px;
+}
+
 /* Command Preview */
 .command-preview {
     background: var(--gray-800);
@@ -450,6 +892,14 @@ body {
     gap: 6px;
     line-height: 2;
     align-content: center;
+}
+
+/* Приглашение $ — как в настоящем терминале */
+.command-preview::before {
+    content: '$';
+    color: var(--green);
+    font-weight: 700;
+    user-select: none;
 }
 
 .blank {
@@ -475,6 +925,7 @@ body {
 
 .word-chip {
     background: var(--white);
+    color: var(--gray-700);
     border: 2px solid var(--gray-300);
     border-bottom: 4px solid var(--gray-400);
     border-radius: 12px;
@@ -495,7 +946,7 @@ body {
 }
 
 .word-chip:hover {
-    background: var(--gray-50);
+    background: var(--gray-100);
 }
 
 .word-chip.correct {
@@ -799,7 +1250,6 @@ button {
     -webkit-user-select: none;
     user-select: none;
 }
-
 </style>
 </head>
 <body>
@@ -823,14 +1273,14 @@ button {
         <!-- Main Menu -->
         <div id="mainMenu" class="screen active">
             <div class="container">
-                <h1 class="title">🐧 Linux & Git Тренажер</h1>
-                <p class="subtitle">Учи команды терминала шаг за шагом</p>
+                <h1 class="title">🐧 Linux • Bash • Git</h1>
+                <p class="subtitle">Тренажер командной строки: уроки по 10 вопросов</p>
                 
                 <div class="menu-grid">
                     <button class="mode-card" onclick="startMode('cards')">
                         <div class="mode-icon">📇</div>
                         <h2>Карточки</h2>
-                        <p>Изучай команды и их описание</p>
+                        <p>Команды и термины со свайпами</p>
                     </button>
                     
                     <button class="mode-card" onclick="startMode('test')">
@@ -842,7 +1292,19 @@ button {
                     <button class="mode-card" onclick="startMode('trainer')">
                         <div class="mode-icon">⌨️</div>
                         <h2>Тренажер</h2>
-                        <p>Собирай команды как в Duolingo</p>
+                        <p>Собери команду из слов</p>
+                    </button>
+
+                    <button class="mode-card" onclick="startMode('letters')">
+                        <div class="mode-icon">🔡</div>
+                        <h2>Тренажер 2</h2>
+                        <p>Набери команду по буквам</p>
+                    </button>
+
+                    <button class="mode-card" onclick="startMode('dict')">
+                        <div class="mode-icon">📖</div>
+                        <h2>Справочник</h2>
+                        <p>Словарь команд + гид по Git</p>
                     </button>
                 </div>
 
@@ -868,13 +1330,20 @@ button {
             <div class="container">
                 <button class="back-btn" onclick="goHome()">← Назад</button>
                 
+                <div id="cardFilters" class="filter-chips"></div>
+
                 <div class="card-counter">
                     <span id="cardCurrent">1</span> / <span id="cardTotal">0</span>
                 </div>
+                <div class="card-known-progress">Знаю: <span id="knownCount">0</span> из <span id="knownTotal">0</span></div>
 
-                <div id="flashcard" class="flashcard" onclick="flipCard()">
+                <div id="flashcard" class="flashcard">
+                    <div id="stampKnow" class="swipe-stamp stamp-know">ЗНАЮ</div>
+                    <div id="stampDontknow" class="swipe-stamp stamp-dontknow">НЕ ЗНАЮ</div>
+                    <div id="stampRepeat" class="swipe-stamp stamp-repeat">ПОВТОРИТЬ</div>
                     <div class="flashcard-inner">
                         <div class="flashcard-front">
+                            <div class="card-status" id="cardStatus"></div>
                             <div class="card-category" id="cardCategory"></div>
                             <div class="card-command" id="cardCommand"></div>
                             <div class="card-hint">Нажми, чтобы увидеть ответ</div>
@@ -886,9 +1355,17 @@ button {
                     </div>
                 </div>
 
+                <div class="swipe-hint">Свайп: → знаю · ← не знаю · ↓ повторить</div>
+
+                <div class="card-actions">
+                    <button class="swipe-btn btn-dontknow" onclick="dontKnowCard()">✗ Не знаю</button>
+                    <button class="swipe-btn btn-repeat" onclick="repeatCard()">↻ Повторить</button>
+                    <button class="swipe-btn btn-know" onclick="knowCard()">✓ Знаю</button>
+                </div>
+
                 <div class="card-controls">
                     <button class="btn-secondary" onclick="prevCard()">← Предыдущая</button>
-                    <button class="btn-primary" onclick="nextCard()">Знаю →</button>
+                    <button class="btn-secondary" onclick="skipCard()">Дальше →</button>
                 </div>
             </div>
         </div>
@@ -899,7 +1376,9 @@ button {
                 <button class="back-btn" onclick="goHome()">← Назад</button>
                 
                 <div class="question-header">
-                    <h2 id="trainerQuestion">Заполните пропуск в команде:</h2>
+                    <span id="trainerTopic" class="trainer-topic">Linux</span>
+                    <h2 id="trainerQuestion">Задача</h2>
+                    <p class="trainer-instruction">Собери команду из слов внизу, чтобы выполнить задачу 👇</p>
                 </div>
 
                 <div id="commandPreview" class="command-preview">
@@ -922,6 +1401,54 @@ button {
                     <button class="btn-skip" onclick="skipQuestion()">Пропустить</button>
                     <button id="checkBtn" class="btn-check" onclick="checkAnswer()" disabled>Проверить</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Letters Mode (Тренажер 2) -->
+        <div id="lettersScreen" class="screen">
+            <div class="container">
+                <button class="back-btn" onclick="goHome()">← Назад</button>
+                
+                <div class="question-header">
+                    <span id="lettersTopic" class="trainer-topic">Linux</span>
+                    <h2 id="lettersQuestion">Задача</h2>
+                    <p class="trainer-instruction">Набери слово по буквам. Ошибся — буква вспыхнет красным и не встанет 👇</p>
+                </div>
+
+                <div id="lettersPreview" class="command-preview">
+                    <!-- Command with letter cells will be inserted here -->
+                </div>
+
+                <div class="options-area">
+                    <div id="letterTiles" class="letter-tiles">
+                        <!-- Letter tiles appear here -->
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn-skip" onclick="skipLettersQuestion()">Пропустить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dictionary Mode (Справочник) -->
+        <div id="dictScreen" class="screen">
+            <div class="container">
+                <button class="back-btn" onclick="goHome()">← Назад</button>
+
+                <div class="question-header">
+                    <h2>🚀 Публикация проекта в Git</h2>
+                    <p class="trainer-instruction">От привязки SSH-ключа до первого push — по шагам</p>
+                </div>
+
+                <div id="guideSteps" class="guide-steps"></div>
+
+                <div class="question-header dict-header">
+                    <h2>📖 Словарь</h2>
+                    <p class="trainer-instruction">Все команды и термины тренажёра</p>
+                </div>
+
+                <div id="dictList" class="dict-list"></div>
             </div>
         </div>
 
@@ -962,8 +1489,8 @@ button {
                 <h2>Урок завершен!</h2>
                 <p>Ты заработал <strong id="earnedXP">0</strong> XP</p>
                 <div class="complete-stats">
-                    <div>Правильных: <span id="correctCount">0</span></div>
-                    <div>Ошибок: <span id="wrongCount">0</span></div>
+                    <div><span id="correctLabel">Правильных:</span> <span id="correctCount">0</span></div>
+                    <div><span id="wrongLabel">Ошибок:</span> <span id="wrongCount">0</span></div>
                 </div>
                 <button class="btn-primary btn-full" onclick="goHome()">На главную</button>
             </div>
@@ -971,7 +1498,7 @@ button {
     </div>
 
     <script>
-// Данные для тренажера: команды Linux и Git
+// Данные для тренажера: команды Linux, основы Bash, команды и термины Git
 const COMMANDS = {
     linux: [
         {
@@ -1047,11 +1574,85 @@ const COMMANDS = {
             category: 'Права'
         }
     ],
+    bash: [
+        {
+            command: 'echo',
+            description: 'Вывести текст или значение переменной в терминал',
+            example: 'echo "Привет!"  # вывод: Привет!\necho $HOME      # вывод: /home/user',
+            category: 'Основы Bash'
+        },
+        {
+            command: '|',
+            description: 'Пайп (конвейер): передать вывод одной команды на вход другой',
+            example: 'cat log.txt | grep error  # найти ошибки в логе\nls | wc -l                # посчитать файлы',
+            category: 'Основы Bash'
+        },
+        {
+            command: '>',
+            description: 'Перенаправить вывод в файл. Внимание: файл будет перезаписан!',
+            example: 'ls > files.txt  # сохранить список файлов в файл',
+            category: 'Основы Bash'
+        },
+        {
+            command: '>>',
+            description: 'Дописать вывод в конец файла (содержимое сохраняется)',
+            example: 'echo "новая строка" >> notes.txt',
+            category: 'Основы Bash'
+        },
+        {
+            command: '&&',
+            description: 'Выполнить следующую команду, только если предыдущая завершилась успешно',
+            example: 'mkdir build && cd build  # создал папку — зашёл в неё',
+            category: 'Основы Bash'
+        },
+        {
+            command: '*',
+            description: 'Шаблон «любые символы»: выбирает файлы по маске имени',
+            example: 'ls *.txt  # все файлы с расширением .txt\nrm *.tmp  # удалить все временные файлы',
+            category: 'Основы Bash'
+        },
+        {
+            command: '$VAR',
+            description: 'Переменная: хранит значение. $ перед именем — прочитать значение',
+            example: 'NAME=Anna   # создать переменную (без пробелов!)\necho $NAME  # вывод: Anna',
+            category: 'Основы Bash'
+        },
+        {
+            command: 'export',
+            description: 'Сделать переменную доступной всем программам (переменная окружения)',
+            example: 'export EDITOR=nano  # теперь git будет открывать nano',
+            category: 'Основы Bash'
+        },
+        {
+            command: 'history',
+            description: 'Показать историю введённых команд',
+            example: 'history  # список недавних команд\n# Совет: стрелка ↑ возвращает предыдущую команду',
+            category: 'Основы Bash'
+        },
+        {
+            command: 'man',
+            description: 'Открыть встроенную справку (руководство) по команде',
+            example: 'man ls  # всё о команде ls; выход — клавиша q',
+            category: 'Основы Bash'
+        },
+        {
+            command: 'which',
+            description: 'Показать путь к программе, которая будет запущена',
+            example: 'which python3  # вывод: /usr/bin/python3',
+            category: 'Основы Bash'
+        },
+        {
+            command: 'clear',
+            description: 'Очистить экран терминала',
+            example: 'clear  # или горячие клавиши Ctrl+L',
+            category: 'Основы Bash'
+        }
+    ],
     git: [
         {
             command: 'git init',
             description: 'Инициализировать новый Git-репозиторий в текущей папке',
-            example: 'git init',
+            example: 'git init  # создаёт скрытую папку .git',
             category: 'Основы Git'
         },
         {
@@ -1063,7 +1664,7 @@ const COMMANDS = {
         {
             command: 'git status',
             description: 'Показать текущее состояние репозитория: измененные файлы, что подготовлено к коммиту',
-            example: 'git status',
+            example: 'git status  # запускай по любому поводу!',
             category: 'Основы Git'
         },
         {
@@ -1087,7 +1688,19 @@ const COMMANDS = {
         {
             command: 'git pull',
             description: 'Загрузить изменения с удаленного репозитория и слить с локальной версией',
-            example: 'git pull origin main',
+            example: 'git pull origin main  # = git fetch + git merge',
+            category: 'Удаленный репозиторий'
+        },
+        {
+            command: 'git fetch',
+            description: 'Скачать изменения с сервера, НО не сливать их с твоим кодом',
+            example: 'git fetch origin  # просто посмотреть, что нового',
+            category: 'Удаленный репозиторий'
+        },
+        {
+            command: 'git remote',
+            description: 'Управление удалёнными репозиториями (серверами)',
+            example: 'git remote -v  # показать имена и адреса серверов',
             category: 'Удаленный репозиторий'
         },
         {
@@ -1103,15 +1716,27 @@ const COMMANDS = {
             category: 'Ветки'
         },
         {
+            command: 'git switch',
+            description: 'Переключиться на другую ветку (современная замена checkout)',
+            example: 'git switch main\ngit switch -c new-branch  # создать и переключиться',
+            category: 'Ветки'
+        },
+        {
             command: 'git merge',
             description: 'Слить изменения из одной ветки в текущую',
             example: 'git merge feature-login',
             category: 'Ветки'
         },
         {
+            command: 'git rebase',
+            description: 'Перенести свои коммиты поверх другой ветки (история остаётся ровной)',
+            example: 'git rebase main  # перенести текущую ветку на свежий main',
+            category: 'Ветки'
+        },
+        {
             command: 'git log',
             description: 'Показать историю коммитов',
-            example: 'git log\ngit log --oneline  # краткий вид',
+            example: 'git log\ngit log --oneline  # краткий вид: хеш + сообщение',
             category: 'История'
         },
         {
@@ -1119,132 +1744,566 @@ const COMMANDS = {
             description: 'Показать различия между версиями файлов (что было изменено)',
             example: 'git diff\ngit diff --staged  # что подготовлено к коммиту',
             category: 'История'
+        },
+        {
+            command: 'git show',
+            description: 'Показать подробности коммита: автор, дата, все изменения',
+            example: 'git show HEAD  # последний коммит',
+            category: 'История'
+        },
+        {
+            command: 'git restore',
+            description: 'Отменить незакоммиченные изменения в файлах',
+            example: 'git restore file.txt  # вернуть файл к последнему коммиту\ngit restore .          # отменить все правки (осторожно!)',
+            category: 'Отмена изменений'
+        },
+        {
+            command: 'git reset',
+            description: 'Убрать файлы из индекса или откатить коммиты',
+            example: 'git reset file.txt    # убрать из индекса\ngit reset --hard HEAD # откатить всё (осторожно!)',
+            category: 'Отмена изменений'
+        },
+        {
+            command: 'git stash',
+            description: 'Временно спрятать незаконченные изменения',
+            example: 'git stash      # спрятать «в карман»\ngit stash pop  # достать обратно',
+            category: 'Отмена изменений'
+        },
+        {
+            command: 'git tag',
+            description: 'Поставить именную метку (обычно номер версии) на коммит',
+            example: 'git tag v1.0\ngit push origin v1.0  # отправить тег на сервер',
+            category: 'Теги'
+        },
+        {
+            command: 'git config',
+            description: 'Настройки Git: имя, почта и другие параметры',
+            example: 'git config --global user.name "Anna"\ngit config --global user.email "anna@mail.com"',
+            category: 'Настройка'
+        }
+    ],
+    terms: [
+        {
+            command: 'репозиторий (repository)',
+            description: 'Папка проекта под контролем Git: хранит файлы и всю историю изменений',
+            example: 'локальный — на твоём компьютере\nудалённый — на сервере (GitHub, GitLab)',
+            category: 'Термины Git'
+        },
+        {
+            command: 'коммит (commit)',
+            description: 'Снимок изменений с описанием — «точка сохранения» в истории проекта',
+            example: 'git commit -m "Добавил страницу входа"',
+            category: 'Термины Git'
+        },
+        {
+            command: 'ветка (branch)',
+            description: 'Отдельная линия разработки: работаешь над фичей, не ломая основной код',
+            example: 'git branch feature  # создать ветку\ngit switch feature  # перейти на неё',
+            category: 'Термины Git'
+        },
+        {
+            command: 'HEAD',
+            description: 'Указатель на коммит, на котором ты сейчас находишься (обычно конец текущей ветки)',
+            example: 'git show HEAD  # что в последнем коммите',
+            category: 'Термины Git'
+        },
+        {
+            command: 'origin',
+            description: 'Стандартное имя удалённого репозитория, откуда ты клонировал проект',
+            example: 'git push origin main  # отправить на origin\n# проверить адрес: git remote -v',
+            category: 'Термины Git'
+        },
+        {
+            command: 'индекс (staging area)',
+            description: '«Зона подготовки»: файлы, отобранные для следующего коммита',
+            example: 'git add file.txt  # файл попал в индекс\ngit status        # зелёные — в индексе',
+            category: 'Термины Git'
+        },
+        {
+            command: 'рабочая копия (working tree)',
+            description: 'Файлы проекта на диске, с которыми ты работаешь прямо сейчас',
+            example: 'git status   # что изменилось в рабочей копии\ngit restore . # откатить рабочую копию к коммиту',
+            category: 'Термины Git'
+        },
+        {
+            command: 'слияние (merge)',
+            description: 'Объединение изменений из одной ветки в другую',
+            example: 'git merge feature  # влить feature в текущую ветку',
+            category: 'Термины Git'
+        },
+        {
+            command: 'конфликт (conflict)',
+            description: 'Git не смог сам объединить изменения: одни строки правили по-разному. Нужно разрулить вручную',
+            example: 'открой файл, найди метки <<<<<<< и >>>>>>>\nотредактируй, затем: git add . → git commit',
+            category: 'Термины Git'
+        },
+        {
+            command: 'форк (fork)',
+            description: 'Твоя копия чужого репозитория на сервере — чтобы предлагать изменения в чужой проект',
+            example: 'кнопка Fork на GitHub → потом clone своей копии',
+            category: 'Термины Git'
+        },
+        {
+            command: 'пул-реквест (pull request)',
+            description: 'Предложение влить твои изменения в другой репозиторий или ветку. Основа командной работы',
+            example: 'push ветки → кнопка "Create pull request" на GitHub',
+            category: 'Термины Git'
+        },
+        {
+            command: 'хеш коммита (SHA)',
+            description: 'Уникальный «номер» коммита из 40 символов, например a1b2c3d4...',
+            example: 'git log --oneline  # короткие хеши слева',
+            category: 'Термины Git'
+        },
+        {
+            command: '.gitignore',
+            description: 'Файл со списком того, что Git должен игнорировать (не отслеживать)',
+            example: 'node_modules/\n*.log\n.env  # секреты сюда!',
+            category: 'Термины Git'
+        },
+        {
+            command: 'тег (tag)',
+            description: 'Постоянная именная метка на коммите — обычно номер версии релиза',
+            example: 'git tag v1.0  # коммит помечен как версия 1.0',
+            category: 'Термины Git'
         }
     ]
 };
 
-// Объединяем все команды в один массив
-const ALL_COMMANDS = [...COMMANDS.linux, ...COMMANDS.git];
+// Объединяем все карточки в один массив (порядок обучения: Linux → Bash → Git → термины)
+// Каждой карточке проставляем тему — для фильтров в режиме карточек и справочника
+const ALL_COMMANDS = [
+    ...COMMANDS.linux.map(c => ({ ...c, topic: 'Linux' })),
+    ...COMMANDS.bash.map(c => ({ ...c, topic: 'Bash' })),
+    ...COMMANDS.git.map(c => ({ ...c, topic: 'Git' })),
+    ...COMMANDS.terms.map(c => ({ ...c, topic: 'Термины' }))
+];
 
-// Вопросы для тренажера (Duolingo-style - заполни пропуск)
-const TRAINER_QUESTIONS = [
-    ...COMMANDS.linux.slice(0, 8).map(cmd => ({
-        ...cmd,
-        type: 'linux',
-        question: 'Какая команда используется для этого?',
-        parts: null
-    })),
-    ...COMMANDS.git.slice(0, 10).map(cmd => ({
-        ...cmd,
-        type: 'git',
-        question: 'Какая команда Git используется для этого?',
-        parts: null
-    })),
-    // Сценарии использования
+// Пошаговый гид: публикация проекта в Git — от привязки SSH-ключа до push
+const GIT_GUIDE = [
     {
-        question: 'Ты хочешь посмотреть, какие файлы лежат в текущей папке',
+        title: 'Сгенерируй SSH-ключ',
+        command: 'ssh-keygen -t ed25519 -C "you@mail.com"',
+        note: 'Почту укажи ту, что на GitHub. На все вопросы можно жать Enter — ключ появится в ~/.ssh/'
+    },
+    {
+        title: 'Запусти ssh-agent и добавь в него ключ',
+        command: 'eval "$(ssh-agent -s)"\nssh-add ~/.ssh/id_ed25519',
+        note: 'Агент держит ключ в памяти, чтобы не вводить пароль ключа каждый раз'
+    },
+    {
+        title: 'Скопируй ПУБЛИЧНЫЙ ключ',
+        command: 'cat ~/.ssh/id_ed25519.pub',
+        note: 'Скопируй весь вывод, начиная с "ssh-ed25519". Приватный ключ (без .pub) никому не показывай!'
+    },
+    {
+        title: 'Привяжи ключ к GitHub',
+        command: 'github.com → Settings → SSH and GPG keys → New SSH key',
+        note: 'Вставь скопированный публичный ключ, дай понятное имя (например, "мой ноутбук") и сохрани'
+    },
+    {
+        title: 'Проверь соединение с GitHub',
+        command: 'ssh -T git@github.com',
+        note: 'Ответ "Hi USERNAME! You\'ve successfully authenticated" — ключ привязан правильно'
+    },
+    {
+        title: 'Создай пустой репозиторий на GitHub',
+        command: 'github.com → New repository',
+        note: 'БЕЗ README и .gitignore — пусть будет пустым, иначе первый push не пройдёт'
+    },
+    {
+        title: 'Инициализируй Git в папке проекта',
+        command: 'git init',
+        note: 'Выполняется в папке проекта. Появится скрытая папка .git'
+    },
+    {
+        title: 'Подготовь файлы к коммиту',
+        command: 'git add .',
+        note: 'Точка — «все файлы». Проверь git status: файлы должны быть зелёными'
+    },
+    {
+        title: 'Сделай первый коммит',
+        command: 'git commit -m "Initial commit"',
+        note: 'Если Git ругается на имя/почту: git config --global user.name "Имя" и user.email "почта"'
+    },
+    {
+        title: 'Переименуй ветку в main',
+        command: 'git branch -M main',
+        note: 'Так главная ветка будет называться как на GitHub'
+    },
+    {
+        title: 'Привяжи удалённый репозиторий по SSH',
+        command: 'git remote add origin git@github.com:USER/REPO.git',
+        note: 'SSH-адрес копируй на странице репозитория (кнопка Code → SSH). Проверка: git remote -v'
+    },
+    {
+        title: 'Отправь код на GitHub',
+        command: 'git push -u origin main',
+        note: '-u связывает ветку с серверной. Дальше достаточно просто git push. Готово! 🎉'
+    }
+];
+
+// Вопросы для тренажера (Duolingo-style — собери команду).
+// У каждого вопроса явно написана ЗАДАЧА (task) — что должна сделать команда,
+// поэтому всегда понятно, что нужно угадать.
+// topic — тема (плашка сверху), fullCommand — полная команда,
+// blanks — индексы слов-пропусков, options — варианты (один правильный),
+// hint — объяснение после ответа.
+const TRAINER_QUESTIONS = [
+    // ========== LINUX ==========
+    {
+        topic: 'Linux',
+        task: 'Покажи список файлов в текущей папке (подробно, со скрытыми файлами)',
         fullCommand: 'ls -la',
         blanks: [0],
-        options: ['ls', 'cd', 'dir', 'list', 'cat'],
-        description: 'ls показывает содержимое директории'
+        options: ['ls', 'cd', 'cat', 'pwd', 'dir'],
+        hint: 'ls (list) показывает содержимое папки. Флаг -la: подробный список + скрытые файлы'
     },
     {
-        question: 'Перейди в папку Documents',
+        topic: 'Linux',
+        task: 'Перейди в папку Documents',
         fullCommand: 'cd Documents',
         blanks: [0],
-        options: ['cd', 'mv', 'go', 'chdir', 'open'],
-        description: 'cd (change directory) меняет текущую папку'
+        options: ['cd', 'mv', 'ls', 'open', 'goto'],
+        hint: 'cd (change directory) меняет текущую папку. cd .. — на уровень выше'
     },
     {
-        question: 'Узнай, в какой папке ты сейчас находишься',
+        topic: 'Linux',
+        task: 'Узнай, в какой папке ты сейчас находишься',
         fullCommand: 'pwd',
         blanks: [0],
-        options: ['pwd', 'whoami', 'ls', 'dir', 'where'],
-        description: 'pwd (print working directory) показывает текущий путь'
+        options: ['pwd', 'ls', 'cd', 'dir', 'whereami'],
+        hint: 'pwd (print working directory) печатает полный путь текущей папки'
     },
     {
-        question: 'Создай новую папку с именем проекта',
-        fullCommand: 'mkdir my-project',
+        topic: 'Linux',
+        task: 'Создай новую папку projects',
+        fullCommand: 'mkdir projects',
         blanks: [0],
-        options: ['mkdir', 'mkfile', 'touch', 'newdir', 'create'],
-        description: 'mkdir (make directory) создаёт новую папку'
+        options: ['mkdir', 'touch', 'newdir', 'mk', 'create'],
+        hint: 'mkdir (make directory) создаёт папку. Вложенные папки: mkdir -p a/b/c'
     },
     {
-        question: 'Инициализируй новый Git репозиторий',
+        topic: 'Linux',
+        task: 'Создай пустой файл readme.txt',
+        fullCommand: 'touch readme.txt',
+        blanks: [0],
+        options: ['touch', 'cat', 'echo', 'mkdir', 'newfile'],
+        hint: 'touch создаёт пустой файл (или обновляет дату изменения существующего)'
+    },
+    {
+        topic: 'Linux',
+        task: 'Скопируй файл notes.txt в backup.txt',
+        fullCommand: 'cp notes.txt backup.txt',
+        blanks: [0],
+        options: ['cp', 'mv', 'copy', 'cat', 'rsync'],
+        hint: 'cp (copy) копирует: cp ЧТО КУДА. Для папок добавь флаг -r'
+    },
+    {
+        topic: 'Linux',
+        task: 'Переименуй файл draft.txt в final.txt',
+        fullCommand: 'mv draft.txt final.txt',
+        blanks: [0],
+        options: ['mv', 'cp', 'rename', 'rm', 'rn'],
+        hint: 'mv (move) и перемещает, и переименовывает файлы'
+    },
+    {
+        topic: 'Linux',
+        task: 'Удали файл temp.log',
+        fullCommand: 'rm temp.log',
+        blanks: [0],
+        options: ['rm', 'del', 'erase', 'mv', 'rmdir'],
+        hint: 'rm (remove) удаляет навсегда — корзины в терминале нет!'
+    },
+    {
+        topic: 'Linux',
+        task: 'Посмотри содержимое файла config.txt',
+        fullCommand: 'cat config.txt',
+        blanks: [0],
+        options: ['cat', 'ls', 'echo', 'grep', 'view'],
+        hint: 'cat выводит весь файл в терминал одним куском'
+    },
+    {
+        topic: 'Linux',
+        task: 'Найди строки со словом error в файле app.log',
+        fullCommand: 'grep error app.log',
+        blanks: [0],
+        options: ['grep', 'find', 'cat', 'sed', 'search'],
+        hint: 'grep ЧТО_ИСКАТЬ ГДЕ — показывает только строки, где нашёлся текст'
+    },
+    {
+        topic: 'Linux',
+        task: 'Обнови список пакетов — обычным пользователям это запрещено',
+        fullCommand: 'sudo apt update',
+        blanks: [0],
+        options: ['sudo', 'root', 'admin', 'su', 'runas'],
+        hint: 'sudo запускает команду с правами суперпользователя (спросит пароль)'
+    },
+    {
+        topic: 'Linux',
+        task: 'Сделай скрипт start.sh исполняемым, чтобы его можно было запускать',
+        fullCommand: 'chmod +x start.sh',
+        blanks: [0],
+        options: ['chmod', 'chown', 'sudo', 'exec', 'permit'],
+        hint: 'chmod меняет права доступа; +x разрешает запускать файл как программу'
+    },
+    // ========== BASH (основы языка) ==========
+    {
+        topic: 'Bash',
+        task: 'Выведи в терминал текст Hello!',
+        fullCommand: 'echo Hello!',
+        blanks: [0],
+        options: ['echo', 'print', 'cat', 'say', 'show'],
+        hint: 'echo печатает текст в терминал — «Hello, World» командной строки'
+    },
+    {
+        topic: 'Bash',
+        task: 'Выведи значение переменной HOME (путь к домашней папке)',
+        fullCommand: 'echo $HOME',
+        blanks: [1],
+        options: ['$HOME', 'HOME', '#HOME', '@HOME', '%HOME'],
+        hint: '$ перед именем читает значение переменной: echo $HOME → /home/user'
+    },
+    {
+        topic: 'Bash',
+        task: 'Найди ошибки в логе: передай вывод cat на вход grep',
+        fullCommand: 'cat app.log | grep error',
+        blanks: [2],
+        options: ['|', '>', '&&', ';', '<'],
+        hint: 'Пайп | соединяет команды: вывод левой становится входом правой'
+    },
+    {
+        topic: 'Bash',
+        task: 'Сохрани список файлов в list.txt, перезаписав этот файл',
+        fullCommand: 'ls > list.txt',
+        blanks: [1],
+        options: ['>', '>>', '|', '<', '&&'],
+        hint: '> отправляет вывод в файл, полностью перезаписывая его'
+    },
+    {
+        topic: 'Bash',
+        task: 'Допиши запись в конец notes.txt, НЕ стирая содержимое файла',
+        fullCommand: 'echo milk >> notes.txt',
+        blanks: [2],
+        options: ['>>', '>', '|', '<', '&&'],
+        hint: '>> дописывает в конец файла (append), а > стёр бы файл и записал заново'
+    },
+    {
+        topic: 'Bash',
+        task: 'Создай папку build и, если всё получилось, сразу зайди в неё',
+        fullCommand: 'mkdir build && cd build',
+        blanks: [2],
+        options: ['&&', '||', '|', ';', '>'],
+        hint: '&& выполняет вторую команду, только если первая завершилась успешно'
+    },
+    {
+        topic: 'Bash',
+        task: 'Покажи в текущей папке только файлы с расширением .txt',
+        fullCommand: 'ls *.txt',
+        blanks: [1],
+        options: ['*.txt', '?.txt', '#txt', 'all.txt', 'txt.all'],
+        hint: '* — шаблон «любые символы»: *.txt — всё, что заканчивается на .txt'
+    },
+    {
+        topic: 'Bash',
+        task: 'Сохрани своё имя в переменную NAME',
+        fullCommand: 'NAME=Anna',
+        blanks: [0],
+        options: ['NAME=Anna', '$NAME=Anna', 'set NAME Anna', 'var NAME=Anna', 'NAME : Anna'],
+        hint: 'Переменная создаётся как ИМЯ=значение — без пробелов и без $. $ нужен только при чтении'
+    },
+    {
+        topic: 'Bash',
+        task: 'Посмотри историю команд, которые ты вводил раньше',
+        fullCommand: 'history',
+        blanks: [0],
+        options: ['history', 'log', 'past', 'journal', 'man'],
+        hint: 'history — список недавних команд. Стрелка ↑ возвращает предыдущую команду'
+    },
+    {
+        topic: 'Bash',
+        task: 'Открой встроенную справку по команде ls',
+        fullCommand: 'man ls',
+        blanks: [0],
+        options: ['man', 'help', 'info', 'doc', 'about'],
+        hint: 'man (manual) — справочник по любой команде. Листай стрелками, выход — q'
+    },
+    {
+        topic: 'Bash',
+        task: 'Узнай, где на диске установлена программа python3',
+        fullCommand: 'which python3',
+        blanks: [0],
+        options: ['which', 'where', 'find', 'locate', 'grep'],
+        hint: 'which показывает путь к файлу программы, например /usr/bin/python3'
+    },
+    {
+        topic: 'Bash',
+        task: 'Очисти экран терминала от лишнего текста',
+        fullCommand: 'clear',
+        blanks: [0],
+        options: ['clear', 'clean', 'cls', 'wipe', 'reset'],
+        hint: 'clear очищает экран; то же самое делает сочетание Ctrl+L'
+    },
+    // ========== GIT ==========
+    {
+        topic: 'Git',
+        task: 'Преврати текущую папку в Git-репозиторий',
         fullCommand: 'git init',
         blanks: [1],
-        options: ['start', 'init', 'create', 'new', 'begin'],
-        description: 'git init создаёт новый репозиторий'
+        options: ['init', 'start', 'create', 'new', 'open'],
+        hint: 'git init создаёт скрытую папку .git — с этого момента Git следит за проектом'
     },
     {
-        question: 'Проверь статус файлов в репозитории',
-        fullCommand: 'git status',
-        blanks: [1],
-        options: ['status', 'check', 'info', 'stat', 'list'],
-        description: 'git status показывает состояние рабочей копии'
-    },
-    {
-        question: 'Подготовь все файлы к коммиту',
-        fullCommand: 'git add .',
-        blanks: [1],
-        options: ['add', 'push', 'put', 'commit', 'stage'],
-        description: 'git add добавляет файлы в индекс'
-    },
-    {
-        question: 'Создай коммит с сообщением "Исправлен баг"',
-        fullCommand: 'git commit -m "Исправлен баг"',
-        blanks: [1],
-        options: ['commit', 'save', 'push', 'create', 'snap'],
-        description: 'git commit сохраняет изменения в истории'
-    },
-    {
-        question: 'Отправь коммиты на сервер GitHub',
-        fullCommand: 'git push origin main',
-        blanks: [1],
-        options: ['push', 'send', 'upload', 'pull', 'put'],
-        description: 'git push отправляет изменения на удалённый репозиторий'
-    },
-    {
-        question: 'Получи последние изменения с сервера',
-        fullCommand: 'git pull origin main',
-        blanks: [1],
-        options: ['pull', 'fetch', 'download', 'get', 'load'],
-        description: 'git pull скачивает и интегрирует изменения с сервера'
-    },
-    {
-        question: 'Создай новую ветку для фичи',
-        fullCommand: 'git checkout -b feature-auth',
-        blanks: [1],
-        options: ['checkout', 'branch', 'switch', 'create', 'new'],
-        description: 'git checkout -b создаёт и сразу переключается на новую ветку'
-    },
-    {
-        question: 'Посмотри историю всех коммитов',
-        fullCommand: 'git log --oneline',
-        blanks: [1],
-        options: ['log', 'history', 'list', 'show', 'commits'],
-        description: 'git log показывает историю коммитов'
-    },
-    {
-        question: 'Клонируй репозиторий с GitHub',
+        topic: 'Git',
+        task: 'Склонируй репозиторий с GitHub на свой компьютер',
         fullCommand: 'git clone https://github.com/user/repo.git',
         blanks: [1],
         options: ['clone', 'copy', 'download', 'get', 'fork'],
-        description: 'git clone создаёт локальную копию удалённого репозитория'
+        hint: 'git clone скачивает репозиторий целиком, вместе с историей изменений'
     },
     {
-        question: 'Создай новый пустой файл readme.txt',
-        fullCommand: 'touch readme.txt',
-        blanks: [0],
-        options: ['touch', 'new', 'create', 'make', 'cat'],
-        description: 'touch создаёт пустой файл или обновляет время существующего'
+        topic: 'Git',
+        task: 'Проверь, какие файлы изменены и что готово к коммиту',
+        fullCommand: 'git status',
+        blanks: [1],
+        options: ['status', 'check', 'info', 'stat', 'list'],
+        hint: 'git status — главная команда Git. Запускай её по любому поводу!'
     },
     {
-        question: 'Посмотри содержимое файла README.md',
-        fullCommand: 'cat README.md',
-        blanks: [0],
-        options: ['cat', 'view', 'show', 'read', 'open'],
-        description: 'cat выводит содержимое файла в терминал'
+        topic: 'Git',
+        task: 'Подготовь ВСЕ изменённые файлы к коммиту',
+        fullCommand: 'git add .',
+        blanks: [1],
+        options: ['add', 'stage', 'push', 'commit', 'put'],
+        hint: 'git add кладёт файлы в индекс (staging area); точка — «все изменения в папке»'
+    },
+    {
+        topic: 'Git',
+        task: 'Сделай коммит с сообщением "Исправлен баг"',
+        fullCommand: 'git commit -m "Исправлен баг"',
+        blanks: [1],
+        options: ['commit', 'save', 'push', 'snap', 'record'],
+        hint: 'git commit -m "текст" сохраняет снимок подготовленных изменений в историю'
+    },
+    {
+        topic: 'Git',
+        task: 'Отправь свои коммиты на сервер (например, на GitHub)',
+        fullCommand: 'git push origin main',
+        blanks: [1],
+        options: ['push', 'send', 'upload', 'pull', 'put'],
+        hint: 'git push origin main отправляет локальную ветку main на сервер origin'
+    },
+    {
+        topic: 'Git',
+        task: 'Забери свежие изменения с сервера и сляй их со своим кодом',
+        fullCommand: 'git pull origin main',
+        blanks: [1],
+        options: ['pull', 'fetch', 'download', 'get', 'load'],
+        hint: 'git pull = git fetch + git merge: скачать и сразу слить с текущей веткой'
+    },
+    {
+        topic: 'Git',
+        task: 'Скачай обновления с сервера, НЕ меняя свой код — просто посмотреть, что нового',
+        fullCommand: 'git fetch origin',
+        blanks: [1],
+        options: ['fetch', 'pull', 'clone', 'checkout', 'sync'],
+        hint: 'git fetch только скачивает новости — твои файлы остаются нетронутыми'
+    },
+    {
+        topic: 'Git',
+        task: 'Создай новую ветку feature (переключаться на неё не нужно)',
+        fullCommand: 'git branch feature',
+        blanks: [1],
+        options: ['branch', 'switch', 'checkout', 'fork', 'new'],
+        hint: 'git branch имя создаёт ветку, но не переключает на неё. Без имени — список веток'
+    },
+    {
+        topic: 'Git',
+        task: 'Переключись на ветку main',
+        fullCommand: 'git switch main',
+        blanks: [1],
+        options: ['switch', 'branch', 'merge', 'jump', 'open'],
+        hint: 'git switch — современная команда переключения веток (замена git checkout)'
+    },
+    {
+        topic: 'Git',
+        task: 'Создай ветку fix-bug и сразу перейди на неё',
+        fullCommand: 'git checkout -b fix-bug',
+        blanks: [1],
+        options: ['checkout', 'switch', 'branch', 'merge', 'init'],
+        hint: 'git checkout -b создаёт ветку и переключается одной командой (аналог: git switch -c)'
+    },
+    {
+        topic: 'Git',
+        task: 'Влей изменения из ветки feature в текущую ветку',
+        fullCommand: 'git merge feature',
+        blanks: [1],
+        options: ['merge', 'join', 'combine', 'mix', 'union'],
+        hint: 'git merge сливает указанную ветку с той, где ты находишься сейчас'
+    },
+    {
+        topic: 'Git',
+        task: 'Посмотри историю коммитов в компактном виде — по одной строке на коммит',
+        fullCommand: 'git log --oneline',
+        blanks: [1],
+        options: ['log', 'history', 'show', 'list', 'commits'],
+        hint: 'git log --oneline: короткий хеш + сообщение. Полный вид — просто git log'
+    },
+    {
+        topic: 'Git',
+        task: 'Посмотри, какие именно строки изменились в файлах с прошлого коммита',
+        fullCommand: 'git diff',
+        blanks: [1],
+        options: ['diff', 'compare', 'changes', 'status', 'log'],
+        hint: 'git diff показывает разницу построчно: красное — удалено, зелёное — добавлено'
+    },
+    {
+        topic: 'Git',
+        task: 'Нужно срочно сменить ветку: временно спрячь незаконченные изменения',
+        fullCommand: 'git stash',
+        blanks: [1],
+        options: ['stash', 'hide', 'save', 'shelve', 'park'],
+        hint: 'git stash прячет изменения «в карман». Достать обратно: git stash pop'
+    },
+    {
+        topic: 'Git',
+        task: 'Отмени все незакоммиченные правки — верни файлы к последнему коммиту',
+        fullCommand: 'git restore .',
+        blanks: [1],
+        options: ['restore', 'reset', 'undo', 'revert', 'clean'],
+        hint: 'git restore . отменяет изменения в рабочей копии. Восстановить их уже нельзя!'
+    },
+    {
+        topic: 'Git',
+        task: 'Покажи, к каким серверам привязан этот репозиторий',
+        fullCommand: 'git remote -v',
+        blanks: [1],
+        options: ['remote', 'origin', 'url', 'server', 'link'],
+        hint: 'git remote -v показывает имена (обычно origin) и адреса удалённых репозиториев'
+    },
+    {
+        topic: 'Git',
+        task: 'Поставь метку v1.0 на текущий коммит — отметь версию релиза',
+        fullCommand: 'git tag v1.0',
+        blanks: [1],
+        options: ['tag', 'label', 'mark', 'version', 'release'],
+        hint: 'git tag v1.0 ставит постоянную метку. Отправить тег: git push origin v1.0'
+    },
+    {
+        topic: 'Git',
+        task: 'Посмотри подробности последнего коммита: кто, когда и что изменил',
+        fullCommand: 'git show HEAD',
+        blanks: [1],
+        options: ['show', 'log', 'diff', 'cat', 'view'],
+        hint: 'HEAD — указатель на текущий коммит. git show HEAD покажет его целиком'
+    },
+    {
+        topic: 'Git',
+        task: 'Укажи своё имя, которым будут подписываться все твои коммиты',
+        fullCommand: 'git config --global user.name "Anna"',
+        blanks: [1],
+        options: ['config', 'set', 'user', 'name', 'setup'],
+        hint: 'git config --global настраивает Git один раз для всех твоих проектов'
     }
 ];
 
@@ -1339,12 +2398,113 @@ const TEST_QUESTIONS = [
         options: ['Историю коммитов', 'Список веток', 'Состояние файлов в репозитории', 'Список удаленных репозиториев'],
         correct: 2,
         explanation: 'git status показывает какие файлы изменены, добавлены или готовы к коммиту'
+    },
+    // ========== Основы Bash ==========
+    {
+        question: 'Что делает символ | (пайп) между двумя командами?',
+        options: ['Передаёт вывод первой команды на вход второй', 'Запускает команды одновременно', 'Выполняет одну из двух команд', 'Разделяет аргументы команды'],
+        correct: 0,
+        explanation: 'cat log.txt | grep error: сначала cat выводит файл, потом grep фильтрует строки'
+    },
+    {
+        question: 'Как сохранить вывод команды ls в файл files.txt, перезаписав его?',
+        options: ['ls >> files.txt', 'ls > files.txt', 'ls | files.txt', 'files.txt < ls'],
+        correct: 1,
+        explanation: '> перезаписывает файл выводом команды, >> дописывает в конец'
+    },
+    {
+        question: 'Чем >> отличается от >?',
+        options: ['Ничем, это одно и то же', '>> дописывает в конец файла, > перезаписывает файл', '>> работает быстрее', '> дописывает, а >> перезаписывает'],
+        correct: 1,
+        explanation: '>> — append (добавить в конец), > — overwrite (стереть и записать заново)'
+    },
+    {
+        question: 'Как правильно создать переменную NAME со значением Anna в Bash?',
+        options: ['$NAME=Anna', 'NAME=Anna', 'set NAME Anna', 'var NAME="Anna"'],
+        correct: 1,
+        explanation: 'ИМЯ=значение — без пробелов и без $. $ нужен только при чтении: echo $NAME'
+    },
+    {
+        question: 'Ты в папке с файлами a.txt и b.txt. Что выведет echo *.txt?',
+        options: ['*.txt', 'a.txt b.txt', 'ошибку', 'только a.txt'],
+        correct: 1,
+        explanation: 'Bash сам раскрывает шаблон *.txt в список подходящих файлов ещё до запуска echo'
+    },
+    {
+        question: 'Что делает команда man ls?',
+        options: ['Удаляет команду ls', 'Открывает справочное руководство по ls', 'Показывает версию ls', 'Создаёт файл ls'],
+        correct: 1,
+        explanation: 'man (manual) — встроенная справка по любой команде. Выйти — клавиша q'
+    },
+    // ========== Git: команды и термины ==========
+    {
+        question: 'Что делает git fetch?',
+        options: ['Сливает ветки между собой', 'Скачивает изменения с сервера, не трогая твои файлы', 'Отправляет коммиты на сервер', 'Удаляет удалённую ветку'],
+        correct: 1,
+        explanation: 'fetch — «просто скачать новости». А git pull = fetch + merge'
+    },
+    {
+        question: 'Что такое HEAD в Git?',
+        options: ['Первый коммит репозитория', 'Указатель на коммит, на котором ты сейчас находишься', 'Главная ветка проекта', 'Имя сервера'],
+        correct: 1,
+        explanation: 'HEAD показывает твоё текущее положение: обычно это конец текущей ветки'
+    },
+    {
+        question: 'Что такое origin?',
+        options: ['Первая ветка репозитория', 'Стандартное имя удалённого репозитория (сервера)', 'Автор первого коммита', 'Скрытая папка .git'],
+        correct: 1,
+        explanation: 'При clone Git сам называет сервер origin. Проверить: git remote -v'
+    },
+    {
+        question: 'Что делает git stash?',
+        options: ['Безвозвратно удаляет изменения', 'Отправляет изменения на сервер', 'Временно прячет незакоммиченные изменения', 'Создаёт новую ветку'],
+        correct: 2,
+        explanation: 'stash — «схрон». Изменения прячутся в карман, вернуть: git stash pop'
+    },
+    {
+        question: 'Для чего нужен файл .gitignore?',
+        options: ['Хранит настройки Git', 'Список файлов и папок, которые Git не должен отслеживать', 'Список авторов проекта', 'Лог всех команд Git'],
+        correct: 1,
+        explanation: 'В .gitignore пишут node_modules/, *.log, .env — всё, чему не место в репозитории'
+    },
+    {
+        question: 'Как отменить незакоммиченные правки в файле и вернуть его к последнему коммиту?',
+        options: ['git restore file.txt', 'git delete file.txt', 'git undo file.txt', 'git back file.txt'],
+        correct: 0,
+        explanation: 'git restore отменяет изменения в рабочей копии. Осторожно: правки пропадут насовсем!'
+    },
+    {
+        question: 'Что такое индекс (staging area)?',
+        options: ['Папка с бэкапами', 'Зона подготовки: файлы, отобранные для следующего коммита', 'Сервер с репозиторием', 'Последний коммит ветки'],
+        correct: 1,
+        explanation: 'git add кладёт файл в индекс; git commit сохраняет то, что в индексе'
+    },
+    {
+        question: 'Что такое форк (fork)?',
+        options: ['Слияние двух веток', 'Твоя копия чужого репозитория на сервере', 'Ошибка в Git', 'Удалённая ветка'],
+        correct: 1,
+        explanation: 'Fork — кнопка на GitHub: копия чужого проекта в твоём аккаунте, чтобы предлагать изменения'
+    },
+    {
+        question: 'Что такое пул-реквест (pull request)?',
+        options: ['Запрос на скачивание репозитория', 'Предложение влить твои изменения в проект или ветку', 'Команда обновления Git', 'Особый тип ветки'],
+        correct: 1,
+        explanation: 'PR — это «посмотрите мои изменения и примите, если всё ок». Основа командной работы'
+    },
+    {
+        question: 'Как пометить текущий коммит как версию v1.0?',
+        options: ['git version v1.0', 'git mark v1.0', 'git tag v1.0', 'git label v1.0'],
+        correct: 2,
+        explanation: 'git tag создаёт метку на коммите. Не забудь отправить: git push origin v1.0'
     }
 ];
-
 // Звуковое сопровождение как в Duolingo через Web Audio API
 let audioCtx = null;
-let soundEnabled = localStorage.getItem('linuxTrainerSound') !== 'off';
+// Чтение настройки без падения, если браузер блокирует localStorage (iframe и т.п.)
+let soundEnabled = (function () {
+    try { return window.localStorage.getItem('linuxTrainerSound') !== 'off'; }
+    catch (e) { return true; }
+})();
 
 function initAudio() {
     if (!audioCtx) {
@@ -1357,7 +2517,7 @@ function initAudio() {
 
 function toggleSound() {
     soundEnabled = !soundEnabled;
-    localStorage.setItem('linuxTrainerSound', soundEnabled ? 'on' : 'off');
+    try { window.localStorage.setItem('linuxTrainerSound', soundEnabled ? 'on' : 'off'); } catch (e) {}
     
     const btn = document.getElementById('soundBtn');
     btn.textContent = soundEnabled ? '🔊' : '🔇';
@@ -1487,18 +2647,37 @@ function playFlip() {
     playTone(500, now, 0.08, 0.1, 'sine', 0.01, 0.08);
     setTimeout(() => playTone(700, now + 0.06, 0.08, 0.08, 'sine', 0.01, 0.08), 60);
 }
+// Безопасная обёртка для хранилища: если браузер блокирует localStorage
+// (например, встроенный просмотр в iframe), приложение продолжает работать
+// и помнит прогресс хотя бы в пределах сессии.
+const storage = {
+    _mem: {},
+    get(key, fallback = '') {
+        try {
+            const v = window.localStorage.getItem(key);
+            return v === null ? (this._mem[key] ?? fallback) : v;
+        } catch (e) {
+            return this._mem[key] ?? fallback;
+        }
+    },
+    set(key, value) {
+        this._mem[key] = value;
+        try { window.localStorage.setItem(key, value); } catch (e) {}
+    }
+};
 
-// Состояние приложения
+// Состояние приложения (сохранённые значения подгружаются при старте)
 let state = {
     currentMode: null,
     hearts: 5,
-    xp: parseInt(localStorage.getItem('linuxTrainerXP') || '0'),
-    streak: parseInt(localStorage.getItem('linuxTrainerStreak') || '0'),
-    totalLearned: parseInt(localStorage.getItem('linuxTrainerLearned') || '0'),
+    xp: 0,
+    streak: 0,
     
     // Cards mode
+    deck: [],
     currentCard: 0,
     isFlipped: false,
+    cardFilter: 'all',
     
     // Trainer mode
     currentTrainerQuestion: 0,
@@ -1506,6 +2685,13 @@ let state = {
     selectedBlank: 0,
     blanksState: [],
     usedOptions: [],
+    
+    // Letters mode (Тренажер 2)
+    lettersQuestions: [],
+    currentLettersQuestion: 0,
+    lettersExpected: [],
+    lettersPlaced: [],
+    lettersTiles: [],
     
     // Test mode
     currentTestQuestion: 0,
@@ -1519,8 +2705,14 @@ let state = {
     questionsPerLesson: 10
 };
 
+// Подгрузить сохранённый прогресс (XP, серия дней)
+function loadSavedState() {
+    state.xp = parseInt(storage.get('linuxTrainerXP', '0')) || 0;
+    state.streak = parseInt(storage.get('linuxTrainerStreak', '0')) || 0;
+}
+
 // DOM Elements
-const screens = ['mainMenu', 'cardsScreen', 'trainerScreen', 'testScreen'];
+const screens = ['mainMenu', 'cardsScreen', 'trainerScreen', 'lettersScreen', 'testScreen', 'dictScreen'];
 
 // Показать экран
 function showScreen(screenId) {
@@ -1534,7 +2726,8 @@ function showScreen(screenId) {
 
 // Обновить статистику в меню
 function updateStats() {
-    document.getElementById('totalLearned').textContent = state.totalLearned;
+    // «Изучено» — карточки, отмеченные как «знаю» (хранится на устройстве)
+    document.getElementById('totalLearned').textContent = knownCardsCount();
     document.getElementById('streak').textContent = state.streak;
     document.getElementById('xp').textContent = state.xp;
 }
@@ -1582,18 +2775,36 @@ function startMode(mode) {
     updateHearts();
     
     if (mode === 'cards') {
-        state.currentCard = 0;
+        // Восстанавливаем фильтр и позицию, чтобы продолжить с того же места
+        const saved = JSON.parse(storage.get('linuxTrainerCardSession', 'null') || 'null');
+        state.cardFilter = (saved && saved.filter) || 'all';
+        state.deck = buildDeck(state.cardFilter);
         state.isFlipped = false;
-        document.getElementById('cardTotal').textContent = ALL_COMMANDS.length;
+        renderFilterChips();
+        updateKnownCount();
+        state.currentCard = saved ? Math.min(saved.index || 0, state.deck.length - 1) : 0;
+        if (state.currentCard < 0) state.currentCard = 0;
+        document.getElementById('cardTotal').textContent = state.deck.length;
         showCard();
         showScreen('cardsScreen');
-        updateProgress(1, ALL_COMMANDS.length);
+        updateProgress(state.currentCard + 1, state.deck.length);
     } else if (mode === 'trainer') {
         state.trainerQuestions = shuffleArray(TRAINER_QUESTIONS).slice(0, state.questionsPerLesson);
         state.currentTrainerQuestion = 0;
         showTrainerQuestion();
         showScreen('trainerScreen');
         updateProgress(0, state.questionsPerLesson);
+    } else if (mode === 'letters') {
+        state.lettersQuestions = shuffleArray(TRAINER_QUESTIONS).slice(0, state.questionsPerLesson);
+        state.currentLettersQuestion = 0;
+        showLettersQuestion();
+        showScreen('lettersScreen');
+        updateProgress(0, state.questionsPerLesson);
+    } else if (mode === 'dict') {
+        renderGuide();
+        renderDict();
+        showScreen('dictScreen');
+        updateProgress(0, 1);
     } else if (mode === 'test') {
         state.testQuestions = shuffleArray(TEST_QUESTIONS).slice(0, state.questionsPerLesson);
         state.currentTestQuestion = 0;
@@ -1604,9 +2815,85 @@ function startMode(mode) {
     }
 }
 
-// ========== CARDS MODE ==========
+// ========== CARDS MODE (Tinder-style) ==========
+// Статусы карточек хранятся в localStorage — приложение помнит,
+// какие команды ты уже знаешь, а что стоит повторить.
+
+function getCardStatuses() {
+    try {
+        return JSON.parse(storage.get('linuxTrainerCardStatus', '{}'));
+    } catch (e) {
+        return {};
+    }
+}
+
+function markCard(command, status) {
+    const statuses = getCardStatuses();
+    statuses[command] = status;
+    storage.set('linuxTrainerCardStatus', JSON.stringify(statuses));
+}
+
+function knownCardsCount() {
+    const statuses = getCardStatuses();
+    return ALL_COMMANDS.filter(c => statuses[c.command] === 'known').length;
+}
+
+// Колода: сначала «не знаю», потом «повторить», потом новые, в конце — выученные.
+// topic — фильтр: 'all' или тема карточек (Linux / Bash / Git / Термины)
+function buildDeck(topic = 'all') {
+    const statuses = getCardStatuses();
+    const priority = c => {
+        const s = statuses[c.command];
+        if (s === 'unknown') return 0;
+        if (s === 'review') return 1;
+        if (!s) return 2;
+        return 3; // known
+    };
+    const source = topic === 'all' ? ALL_COMMANDS : ALL_COMMANDS.filter(c => c.topic === topic);
+    return source
+        .map((card, i) => ({ card, i }))
+        .sort((a, b) => priority(a.card) - priority(b.card) || a.i - b.i)
+        .map(o => o.card);
+}
+
+// Запомнить, на какой карточке остановился пользователь (и с каким фильтром)
+function saveCardSession() {
+    storage.set('linuxTrainerCardSession', JSON.stringify({
+        filter: state.cardFilter,
+        index: state.currentCard
+    }));
+}
+
+const CARD_TOPICS = ['all', 'Linux', 'Bash', 'Git', 'Термины'];
+
+function renderFilterChips() {
+    const box = document.getElementById('cardFilters');
+    box.innerHTML = '';
+    CARD_TOPICS.forEach(topic => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-chip' + (state.cardFilter === topic ? ' active' : '');
+        btn.textContent = topic === 'all' ? 'Все' : topic;
+        btn.onclick = () => setCardFilter(topic);
+        box.appendChild(btn);
+    });
+}
+
+function setCardFilter(topic) {
+    playClick();
+    state.cardFilter = topic;
+    state.deck = buildDeck(topic);
+    state.currentCard = 0;
+    state.isFlipped = false;
+    saveCardSession();
+    renderFilterChips();
+    document.getElementById('cardTotal').textContent = state.deck.length;
+    updateKnownCount();
+    showCard();
+    updateProgress(1, state.deck.length);
+}
+
 function showCard() {
-    const card = ALL_COMMANDS[state.currentCard];
+    const card = state.deck[state.currentCard];
     document.getElementById('cardCategory').textContent = card.category;
     document.getElementById('cardCommand').textContent = card.command;
     document.getElementById('cardDescription').textContent = card.description;
@@ -1614,42 +2901,239 @@ function showCard() {
     
     document.getElementById('cardCurrent').textContent = state.currentCard + 1;
     
+    // Плашка статуса, если карточка уже отмечалась раньше
+    const status = getCardStatuses()[card.command];
+    const statusEl = document.getElementById('cardStatus');
+    statusEl.className = 'card-status' + (status ? ' ' + status : '');
+    statusEl.textContent = status === 'known' ? '✓ знаю' :
+                           status === 'unknown' ? '✗ не знаю' :
+                           status === 'review' ? '↻ повторить' : '';
+    
     const flashcard = document.getElementById('flashcard');
     flashcard.classList.remove('flipped');
     state.isFlipped = false;
+    
+    // Анимация появления следующей карточки
+    flashcard.classList.remove('card-enter');
+    void flashcard.offsetWidth;
+    flashcard.classList.add('card-enter');
 }
 
 function flipCard() {
+    if (state.currentMode !== 'cards') return;
     playFlip();
     const flashcard = document.getElementById('flashcard');
     flashcard.classList.toggle('flipped');
     state.isFlipped = !state.isFlipped;
 }
 
-function nextCard() {
-    playClick();
-    state.totalLearned++;
-    localStorage.setItem('linuxTrainerLearned', state.totalLearned.toString());
-    state.sessionXP += 2;
-    state.xp += 2;
-    localStorage.setItem('linuxTrainerXP', state.xp.toString());
-    
-    if (state.currentCard < ALL_COMMANDS.length - 1) {
+function updateKnownCount() {
+    const statuses = getCardStatuses();
+    const source = state.cardFilter === 'all' ? ALL_COMMANDS : ALL_COMMANDS.filter(c => c.topic === state.cardFilter);
+    const known = source.filter(c => statuses[c.command] === 'known').length;
+    document.getElementById('knownCount').textContent = known;
+    document.getElementById('knownTotal').textContent = source.length;
+}
+
+function advanceCard() {
+    if (state.currentCard < state.deck.length - 1) {
         state.currentCard++;
+        saveCardSession();
         showCard();
-        updateProgress(state.currentCard + 1, ALL_COMMANDS.length);
+        updateProgress(state.currentCard + 1, state.deck.length);
     } else {
+        // Колода пройдена — в следующий раз начнём сначала
+        storage.set('linuxTrainerCardSession', JSON.stringify({ filter: state.cardFilter, index: 0 }));
         showLessonComplete();
     }
+}
+
+// XP за карточки начисляем сразу и сохраняем на устройство —
+// иначе выход посреди колоды обнулял бы заработанное
+function addCardXP(n) {
+    state.sessionXP += n;
+    state.xp += n;
+    storage.set('linuxTrainerXP', state.xp.toString());
+}
+
+// Действие после анимации вылета карточки
+function doKnow() {
+    markCard(state.deck[state.currentCard].command, 'known');
+    addCardXP(3);
+    state.sessionCorrect++;
+    updateKnownCount();
+    advanceCard();
+}
+
+function doDontKnow() {
+    markCard(state.deck[state.currentCard].command, 'unknown');
+    state.sessionWrong++;
+    updateKnownCount();
+    advanceCard();
+}
+
+function doRepeat() {
+    markCard(state.deck[state.currentCard].command, 'review');
+    addCardXP(1);
+    updateKnownCount();
+    advanceCard();
+}
+
+// Кнопки действий (дублируют свайпы, карточка так же улетает)
+function knowCard() {
+    playSelect();
+    flyCardOut('right', 0, 0, doKnow);
+}
+
+function dontKnowCard() {
+    playSkip();
+    flyCardOut('left', 0, 0, doDontKnow);
+}
+
+function repeatCard() {
+    playClick();
+    flyCardOut('down', 0, 0, doRepeat);
+}
+
+// Навигация без смены статуса
+function skipCard() {
+    playClick();
+    advanceCard();
 }
 
 function prevCard() {
     playClick();
     if (state.currentCard > 0) {
         state.currentCard--;
+        saveCardSession();
         showCard();
-        updateProgress(state.currentCard + 1, ALL_COMMANDS.length);
+        updateProgress(state.currentCard + 1, state.deck.length);
     }
+}
+
+// ========== CARD SWIPE (жесты) ==========
+const SWIPE_THRESHOLD = 90;
+let cardDrag = null;
+
+// Штампы появляются постепенно, по мере того как тянешь карточку
+function updateStamps(dx, dy) {
+    const clamp01 = v => Math.max(0, Math.min(1, v));
+    const horizontal = Math.min(1, Math.abs(dx) / SWIPE_THRESHOLD);
+    document.getElementById('stampKnow').style.opacity = clamp01(dx / SWIPE_THRESHOLD);
+    document.getElementById('stampDontknow').style.opacity = clamp01(-dx / SWIPE_THRESHOLD);
+    // «Повторить» — только когда тянут преимущественно вниз
+    document.getElementById('stampRepeat').style.opacity = clamp01(dy / SWIPE_THRESHOLD) * (1 - horizontal);
+}
+
+function hideStamps(exceptId) {
+    ['stampKnow', 'stampDontknow', 'stampRepeat'].forEach(id => {
+        document.getElementById(id).style.opacity = (id === exceptId) ? 1 : 0;
+    });
+}
+
+// Анимация вылета карточки за экран, затем действие
+function flyCardOut(direction, dx, dy, action) {
+    const card = document.getElementById('flashcard');
+    if (state.currentMode !== 'cards' || card.classList.contains('flying')) return;
+    card.classList.add('flying');
+
+    const stampId = direction === 'right' ? 'stampKnow' :
+                    direction === 'left' ? 'stampDontknow' : 'stampRepeat';
+    hideStamps(stampId);
+
+    const offX = Math.max(window.innerWidth, 500);
+    const offY = Math.max(window.innerHeight, 700);
+    const targets = {
+        right: [offX, dy, 25],
+        left: [-offX, dy, -25],
+        down: [dx, offY, 0]
+    };
+    const [tx, ty, rot] = targets[direction];
+
+    card.style.transition = 'transform 0.28s ease-in, opacity 0.28s ease-in';
+    card.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg)`;
+    card.style.opacity = '0';
+
+    setTimeout(() => {
+        resetCardInstant(card);
+        if (state.currentMode !== 'cards') return; // пользователь успел выйти
+        action();
+    }, 280);
+}
+
+// Мгновенный сброс позиции после вылета + плавное появление
+function resetCardInstant(card) {
+    card.style.transition = 'none';
+    card.style.transform = '';
+    hideStamps();
+    void card.offsetWidth; // reflow, чтобы «none» применился
+    card.style.transition = 'opacity 0.18s ease';
+    card.style.opacity = '';
+    setTimeout(() => {
+        card.style.transition = '';
+        card.classList.remove('flying');
+    }, 200);
+}
+
+// Пружинный возврат карточки, если свайп не дошёл до порога
+function snapCardBack(card) {
+    card.style.transition = 'transform 0.28s cubic-bezier(.2,.8,.3,1.2)';
+    card.style.transform = '';
+    hideStamps();
+    setTimeout(() => { card.style.transition = ''; }, 300);
+}
+
+function initCardGestures() {
+    const card = document.getElementById('flashcard');
+
+    card.addEventListener('pointerdown', e => {
+        if (state.currentMode !== 'cards' || card.classList.contains('flying')) return;
+        cardDrag = { startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, moved: false };
+        card.classList.add('dragging');
+        try { card.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+
+    card.addEventListener('pointermove', e => {
+        if (!cardDrag) return;
+        cardDrag.dx = e.clientX - cardDrag.startX;
+        cardDrag.dy = e.clientY - cardDrag.startY;
+        if (Math.abs(cardDrag.dx) > 6 || Math.abs(cardDrag.dy) > 6) cardDrag.moved = true;
+        card.style.transition = 'none';
+        card.style.transform = `translate(${cardDrag.dx}px, ${cardDrag.dy}px) rotate(${cardDrag.dx / 12}deg)`;
+        updateStamps(cardDrag.dx, cardDrag.dy);
+    });
+
+    card.addEventListener('pointerup', e => {
+        if (!cardDrag) return;
+        const { dx, dy, moved } = cardDrag;
+        cardDrag = null;
+        card.classList.remove('dragging');
+
+        if (!moved) {
+            snapCardBack(card); // на случай микродвижения
+            flipCard();         // тап — перевернуть карточку
+            return;
+        }
+        if (dx > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+            playSelect();
+            flyCardOut('right', dx, dy, doKnow);
+        } else if (dx < -SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
+            playSkip();
+            flyCardOut('left', dx, dy, doDontKnow);
+        } else if (dy > SWIPE_THRESHOLD && dy > Math.abs(dx)) {
+            playClick();
+            flyCardOut('down', dx, dy, doRepeat);
+        } else {
+            snapCardBack(card);
+        }
+    });
+
+    card.addEventListener('pointercancel', () => {
+        if (!cardDrag) return;
+        cardDrag = null;
+        card.classList.remove('dragging');
+        snapCardBack(card);
+    });
 }
 
 // ========== TRAINER MODE (Duolingo-style) ==========
@@ -1660,46 +3144,20 @@ function showTrainerQuestion() {
     document.getElementById('checkBtn').disabled = true;
     
     const q = state.trainerQuestions[state.currentTrainerQuestion];
-    document.getElementById('trainerQuestion').textContent = q.question || 'Соберите команду:';
     
-    let commandParts;
+    // Задача всегда показана явно: пользователь точно знает, ЧТО должна сделать команда
+    document.getElementById('trainerTopic').textContent = q.topic || 'Команды';
+    document.getElementById('trainerQuestion').textContent = q.task || q.question || 'Собери команду:';
     
-    if (q.command && !q.fullCommand) {
-        const cmdParts = q.command.split(' ');
-        const blankIndex = q.type === 'git' ? 1 : 0;
-        
-        commandParts = cmdParts.map((word, i) => {
-            if (i === blankIndex) {
-                state.blanksState.push(null);
-                return { type: 'blank', index: 0 };
-            }
-            return { type: 'text', word: word };
-        });
-        
-        const correctWord = cmdParts[blankIndex];
-        const otherOptions = [];
-        const allWords = ALL_COMMANDS.flatMap(c => c.command.split(' '));
-        while (otherOptions.length < 4) {
-            const w = allWords[Math.floor(Math.random() * allWords.length)];
-            if (w !== correctWord && !otherOptions.includes(w) && w !== 'git') {
-                otherOptions.push(w);
-            }
+    // Разбиваем полную команду на слова; индексы из q.blanks становятся пропусками
+    const cmdWords = q.fullCommand.split(' ');
+    const commandParts = cmdWords.map((word, i) => {
+        if (q.blanks.includes(i)) {
+            state.blanksState.push(null);
+            return { type: 'blank', index: state.blanksState.length - 1 };
         }
-        q.fullCommand = q.command;
-        q.options = shuffleArray([correctWord, ...otherOptions]);
-        q.correctAnswer = correctWord;
-        q.blanks = [blankIndex];
-    } else {
-        const cmdWords = q.fullCommand.split(' ');
-        commandParts = cmdWords.map((word, i) => {
-            if (q.blanks && q.blanks.includes(i)) {
-                state.blanksState.push(null);
-                return { type: 'blank', index: state.blanksState.length - 1 };
-            }
-            return { type: 'text', word: word };
-        });
-        q.correctAnswer = q.fullCommand.split(' ').filter((w, i) => q.blanks.includes(i));
-    }
+        return { type: 'text', word: word };
+    });
     
     const preview = document.getElementById('commandPreview');
     preview.innerHTML = '';
@@ -1721,6 +3179,7 @@ function showTrainerQuestion() {
     
     document.getElementById('selectedWords').innerHTML = '';
     
+    // Варианты слов (в data.js всегда ровно один правильный + подходящие по теме отвлекающие)
     const optionsContainer = document.getElementById('wordOptions');
     optionsContainer.innerHTML = '';
     const shuffledOptions = shuffleArray(q.options);
@@ -1798,7 +3257,7 @@ function checkAnswer() {
         state.sessionCorrect++;
         state.sessionXP += 10;
         playCorrect();
-        showResult(true, 'Правильно! 👏', q.description || 'Отличная работа!');
+        showResult(true, 'Правильно! 👏', q.hint || q.description || 'Отличная работа!');
     } else {
         state.sessionWrong++;
         state.hearts--;
@@ -1812,7 +3271,7 @@ function checkAnswer() {
         setTimeout(() => preview.classList.remove('shake'), 500);
         
         const correctCommand = q.fullCommand;
-        const msg = `Правильная команда: <strong style="font-family: monospace; font-size: 0.9em">${correctCommand}</strong><br><br>${q.description || ''}`;
+        const msg = `Правильная команда: <strong style="font-family: monospace; font-size: 0.9em">${correctCommand}</strong><br><br>${q.hint || q.description || ''}`;
         
         if (state.hearts <= 0) {
             setTimeout(() => showLessonComplete(), 2200);
@@ -1828,7 +3287,7 @@ function skipQuestion() {
     updateHearts();
     playHeartLost();
     const q = state.trainerQuestions[state.currentTrainerQuestion];
-    const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.description || ''}`;
+    const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.hint || q.description || ''}`;
     state.sessionWrong++;
     
     if (state.hearts <= 0) {
@@ -1837,6 +3296,217 @@ function skipQuestion() {
     } else {
         showResult(false, 'Пропущено', msg);
     }
+}
+
+// ========== LETTERS MODE (Тренажер 2: буквы, как в Duolingo) ==========
+// Показываем задачу и фишки с буквами. Тап по правильной (следующей) букве
+// ставит её в пропуск, тап по неправильной — фишка вспыхивает красным,
+// НЕ ставится, а жизнь сгорает.
+
+// Буквы-дополнения, похожие на символьный запас команд
+const LETTER_DISTRACTORS = 'aeinrslcmgot'.split('');
+
+function showLettersQuestion() {
+    const q = state.lettersQuestions[state.currentLettersQuestion];
+    document.getElementById('lettersTopic').textContent = q.topic || 'Команды';
+    document.getElementById('lettersQuestion').textContent = q.task || 'Собери команду:';
+
+    // Ожидаемое слово — пропуск в команде
+    const words = q.fullCommand.split(' ');
+    state.lettersExpected = words.filter((w, i) => q.blanks.includes(i)).join(' ').replace(/ /g, '').split('');
+    state.lettersPlaced = [];
+
+    // Командная строка с пропуском из буквенных ячеек
+    const preview = document.getElementById('lettersPreview');
+    preview.innerHTML = '';
+    words.forEach((word, i) => {
+        if (q.blanks.includes(i)) {
+            const slot = document.createElement('span');
+            slot.className = 'letters-slot';
+            slot.id = 'lettersSlot';
+            slot.onclick = removeLastLetter;
+            for (let k = 0; k < word.length; k++) {
+                const cell = document.createElement('span');
+                cell.className = 'letter-cell';
+                cell.id = `letter-cell-${k}`;
+                cell.textContent = '';
+                slot.appendChild(cell);
+            }
+            preview.appendChild(slot);
+        } else {
+            const span = document.createElement('span');
+            span.className = 'cmd-text';
+            span.textContent = word;
+            preview.appendChild(span);
+        }
+        preview.appendChild(document.createTextNode(' '));
+    });
+
+    // Фишки с буквами: буквы ответа + 3 лишние буквы, всё перемешано
+    const answerLetters = [...state.lettersExpected];
+    const pool = LETTER_DISTRACTORS.filter(l => !answerLetters.includes(l));
+    const distractors = shuffleArray(pool).slice(0, 3);
+    state.lettersTiles = shuffleArray([...answerLetters, ...distractors]);
+
+    const tilesBox = document.getElementById('letterTiles');
+    tilesBox.innerHTML = '';
+    state.lettersTiles.forEach((letter, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'letter-tile';
+        btn.textContent = letter;
+        btn.dataset.letter = letter;
+        btn.onclick = () => tapLetter(letter, btn);
+        tilesBox.appendChild(btn);
+    });
+}
+
+function tapLetter(letter, btn) {
+    const nextIndex = state.lettersPlaced.length;
+    const expected = state.lettersExpected[nextIndex];
+
+    if (letter === expected) {
+        // Правильная буква — ставим в пропуск
+        playSelect();
+        btn.classList.add('used');
+        state.lettersPlaced.push({ letter, btn });
+        const cell = document.getElementById(`letter-cell-${nextIndex}`);
+        cell.textContent = letter;
+        cell.classList.add('filled');
+
+        // Слово собрано целиком — вопрос засчитан
+        if (state.lettersPlaced.length === state.lettersExpected.length) {
+            state.sessionCorrect++;
+            state.sessionXP += 12;
+            playCorrect();
+            const q = state.lettersQuestions[state.currentLettersQuestion];
+            setTimeout(() => {
+                showResult(true, 'Правильно! 👏', q.hint || 'Отличная работа!');
+            }, 350);
+        }
+    } else {
+        // Не та буква — вспыхивает красным и НЕ ставится
+        playWrong();
+        state.sessionWrong++;
+        state.hearts--;
+        updateHearts();
+        playHeartLost();
+        btn.classList.add('wrong-flash');
+        const tilesBox = document.getElementById('letterTiles');
+        tilesBox.classList.add('shake');
+        setTimeout(() => {
+            btn.classList.remove('wrong-flash');
+            tilesBox.classList.remove('shake');
+        }, 500);
+
+        if (state.hearts <= 0) {
+            setTimeout(() => showLessonComplete(), 700);
+        }
+    }
+}
+
+// Тап по пропуску убирает последнюю поставленную букву
+function removeLastLetter() {
+    if (state.lettersPlaced.length === 0) return;
+    const last = state.lettersPlaced.pop();
+    playClick();
+    last.btn.classList.remove('used');
+    const cell = document.getElementById(`letter-cell-${state.lettersPlaced.length}`);
+    cell.textContent = '';
+    cell.classList.remove('filled');
+}
+
+function skipLettersQuestion() {
+    playSkip();
+    state.hearts--;
+    updateHearts();
+    playHeartLost();
+    const q = state.lettersQuestions[state.currentLettersQuestion];
+    const msg = `Команда: <strong style="font-family: monospace; font-size: 0.9em">${q.fullCommand}</strong><br><br>${q.hint || ''}`;
+    state.sessionWrong++;
+
+    if (state.hearts <= 0) {
+        showResult(false, 'Пропуск', msg);
+        setTimeout(() => showLessonComplete(), 2200);
+    } else {
+        showResult(false, 'Пропущено', msg);
+    }
+}
+
+// ========== DICTIONARY MODE (Справочник) ==========
+function renderGuide() {
+    const box = document.getElementById('guideSteps');
+    box.innerHTML = '';
+    GIT_GUIDE.forEach((step, i) => {
+        const el = document.createElement('div');
+        el.className = 'guide-step';
+
+        const num = document.createElement('div');
+        num.className = 'guide-num';
+        num.textContent = i + 1;
+
+        const body = document.createElement('div');
+        body.className = 'guide-body';
+
+        const title = document.createElement('div');
+        title.className = 'guide-title';
+        title.textContent = step.title;
+
+        const cmd = document.createElement('div');
+        cmd.className = 'guide-command';
+        cmd.textContent = step.command;
+        // Псевдокоманды-описания (со стрелками →) не оформляем как терминал
+        if (step.command.includes('→')) cmd.classList.add('guide-command-text');
+
+        const note = document.createElement('div');
+        note.className = 'guide-note';
+        note.textContent = step.note;
+
+        body.appendChild(title);
+        body.appendChild(cmd);
+        body.appendChild(note);
+        el.appendChild(num);
+        el.appendChild(body);
+        box.appendChild(el);
+    });
+}
+
+function renderDict() {
+    const box = document.getElementById('dictList');
+    box.innerHTML = '';
+    const topics = [
+        ['Linux', ALL_COMMANDS.filter(c => c.topic === 'Linux')],
+        ['Bash', ALL_COMMANDS.filter(c => c.topic === 'Bash')],
+        ['Git', ALL_COMMANDS.filter(c => c.topic === 'Git')],
+        ['Термины Git', ALL_COMMANDS.filter(c => c.topic === 'Термины')]
+    ];
+    topics.forEach(([name, cards]) => {
+        const header = document.createElement('h3');
+        header.className = 'dict-topic';
+        header.textContent = `${name} (${cards.length})`;
+        box.appendChild(header);
+
+        cards.forEach(card => {
+            const item = document.createElement('div');
+            item.className = 'dict-item';
+
+            const cmd = document.createElement('div');
+            cmd.className = 'dict-command';
+            cmd.textContent = card.command;
+
+            const desc = document.createElement('div');
+            desc.className = 'dict-desc';
+            desc.textContent = card.description;
+
+            const example = document.createElement('div');
+            example.className = 'dict-example';
+            example.textContent = card.example;
+
+            item.appendChild(cmd);
+            item.appendChild(desc);
+            item.appendChild(example);
+            box.appendChild(item);
+        });
+    });
 }
 
 // ========== TEST MODE ==========
@@ -1959,6 +3629,14 @@ function nextQuestion() {
             showTrainerQuestion();
             updateProgress(state.currentTrainerQuestion, state.questionsPerLesson);
         }
+    } else if (state.currentMode === 'letters') {
+        state.currentLettersQuestion++;
+        if (state.currentLettersQuestion >= state.lettersQuestions.length) {
+            showLessonComplete();
+        } else {
+            showLettersQuestion();
+            updateProgress(state.currentLettersQuestion, state.questionsPerLesson);
+        }
     } else if (state.currentMode === 'test') {
         state.currentTestQuestion++;
         if (state.currentTestQuestion >= state.testQuestions.length) {
@@ -1971,8 +3649,16 @@ function nextQuestion() {
 }
 
 function showLessonComplete() {
-    state.xp += state.sessionXP;
-    localStorage.setItem('linuxTrainerXP', state.xp.toString());
+    // В карточках XP уже начислены по ходу (addCardXP) — повторно не добавляем
+    if (state.currentMode !== 'cards') {
+        state.xp += state.sessionXP;
+        storage.set('linuxTrainerXP', state.xp.toString());
+    }
+    
+    // Для карточек подписи статистики другие
+    const isCards = state.currentMode === 'cards';
+    document.getElementById('correctLabel').textContent = isCards ? 'Знаю:' : 'Правильных:';
+    document.getElementById('wrongLabel').textContent = isCards ? 'Не знаю:' : 'Ошибок:';
     
     document.getElementById('earnedXP').textContent = state.sessionXP;
     document.getElementById('correctCount').textContent = state.sessionCorrect;
@@ -1990,9 +3676,11 @@ function showLessonComplete() {
 
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
+    loadSavedState();
     updateStats();
     updateHearts();
     updateProgress(0, 1);
+    initCardGestures();
     
     // Инициализируем аудио при первом тапе/клике (требование мобильных браузеров)
     const initAudioOnFirstInteraction = () => {
@@ -2003,7 +3691,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('touchstart', initAudioOnFirstInteraction, { once: true });
     document.addEventListener('click', initAudioOnFirstInteraction, { once: true });
 });
-
 </script>
 </body>
 </html>
