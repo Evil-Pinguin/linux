@@ -9,6 +9,9 @@ Duolingo-style тренажер командной строки: учит ком
 Просто открой `linux-trainer.html` (или `linux-trainer/index.html`) в браузере —
 сервер не нужен, весь CSS и JS встроены в файл.
 
+Для статических хостингов (Vercel, GitHub Pages): корневой `index.html`
+автоматически перенаправляет на `linux-trainer.html`.
+
 ## Режимы
 
 - **📇 Карточки** — 60 карточек: команды и термины с примерами (Linux → Bash → Git → термины Git)
