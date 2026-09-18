@@ -108,16 +108,6 @@ function playSkip() {
     playTone(350, now, 0.15, 0.18, 'triangle', 0.02, 0.15);
 }
 
-// Звук потери сердечка
-function playHeartLost() {
-    if (!soundEnabled) return;
-    initAudio();
-    
-    const now = audioCtx.currentTime;
-    playTone(400, now, 0.1, 0.2, 'square', 0.01, 0.1);
-    setTimeout(() => playTone(300, now + 0.08, 0.2, 0.18, 'square', 0.01, 0.15), 80);
-}
-
 // Звук завершения урока (фанфары)
 function playLessonComplete() {
     if (!soundEnabled) return;
